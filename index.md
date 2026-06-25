@@ -50,6 +50,7 @@ For your second milestone, explain what you've worked on since your previous mil
 src="https://www.youtube.com/embed/BF2v-AP0EPY"
 title="YouTube video player"
 frameborder="0"
+allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
 allowfullscreen>
 </iframe>
 
