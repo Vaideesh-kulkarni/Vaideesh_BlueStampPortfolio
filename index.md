@@ -69,14 +69,78 @@ Make the motors work when connected to the motordrvier as well as make the ultra
 
 # Schematics
 
-# Code
-```cpp
-void setup() {
-  Serial.begin(9600);
-  Serial.println("Hello World!");
-}
-void loop() {
-}
+# Basic code for motor driver
+```import RPi.GPIO as GPIO
+GPIO.setmode(GPIO.BCM)
+
+A1A = 6; A1B = 5; B1A = 22; B2A = 23
+for p in [A1A, A1B, B1A, B2A]:
+    GPIO.setup(p, GPIO.OUT)
+
+def forward():
+    GPIO.output(A1A, GPIO.LOW); GPIO.output(A1B, GPIO.HIGH)
+    GPIO.output(B1A, GPIO.LOW); GPIO.output(B2A, GPIO.HIGH)
+def backward():
+    GPIO.output(A1A, GPIO.HIGH); GPIO.output(A1B, GPIO.LOW)
+    GPIO.output(B1A, GPIO.HIGH); GPIO.output(B2A, GPIO.LOW)
+def left():
+    GPIO.output(A1A, GPIO.LOW); GPIO.output(A1B, GPIO.LOW)
+    GPIO.output(B1A, GPIO.LOW); GPIO.output(B2A, GPIO.HIGH)
+def right():
+    GPIO.output(A1A, GPIO.LOW); GPIO.output(A1B, GPIO.HIGH)
+    GPIO.output(B1A, GPIO.LOW); GPIO.output(B2A, GPIO.LOW)
+def stop():
+    for p in [A1A, A1B, B1A, B2A]: GPIO.output(p, GPIO.LOW)
+
+print("w=forward s=back a=left d=right x=stop q=quit")
+try:
+    while True:
+        u = input("move: ")
+        if u=='w': forward()
+        elif u=='s': backward()
+        elif u=='a': left()
+        elif u=='d': right()
+        elif u=='x': stop()
+        elif u=='q': break
+except KeyboardInterrupt:
+    pass
+GPIO.cleanup()
+
+```
+
+
+# Basic code for ultrasonic sensors
+```import RPi.GPIO as GPIO
+import time
+GPIO.setmode(GPIO.BCM)
+
+TRIG = 11   # GPIO 11 = pin 23
+ECHO = 12   # GPIO 12 = pin 32 (through divider)
+
+GPIO.setup(TRIG, GPIO.OUT)
+GPIO.setup(ECHO, GPIO.IN)
+GPIO.output(TRIG, False)
+time.sleep(2)
+
+try:
+    while True:
+        GPIO.output(TRIG, True)
+        time.sleep(0.00001)
+        GPIO.output(TRIG, False)
+
+        start = time.time()
+        stop = time.time()
+        while GPIO.input(ECHO) == 0:
+            start = time.time()
+        while GPIO.input(ECHO) == 1:
+            stop = time.time()
+
+        distance = (stop - start) * 34300 / 2
+        print("Distance:", round(distance, 2), "cm")
+        time.sleep(0.5)
+except KeyboardInterrupt:
+    GPIO.cleanup()
+
 ```
 
 # Bill of Materials
