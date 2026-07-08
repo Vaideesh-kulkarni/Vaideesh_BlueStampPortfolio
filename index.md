@@ -1,52 +1,81 @@
-<!--
-
 # Ball Tracking Robot with OpenCV: Computer Vision
-
 The Ball Tracking Robot with OpenCv uses a Rasberry pi 4 computer, a 5mp camera, and python to create a robot that avoids obstacles, moves independently, and can make decisions on where to navigate. This project involves using circuits to make connections, hardware and software integrations, as well as programming.
-
 | **Engineer** | **School** | **Area of Interest** | **Grade** |
 |:--:|:--:|:--:|:--:|
 | Vaideesh K | Cupertino Highschool | Electrical Engineering | Incoming Senior |
-
 ![Headstone Image](logo.svg)
-
 # Final Milestone
-
 <iframe width="560" height="315" src="https://www.youtube.com/embed/F7M7imOVGug" frameborder="0" allowfullscreen></iframe>
 
-...
-
 # Second Milestone
-
 <iframe width="560" height="315" src="https://www.youtube.com/embed/y3VAmNlER5Y" frameborder="0" allowfullscreen></iframe>
 
-...
+Summary: 
+
+My seocnd milestone was the biggest portion of my project. I had to get the motors spinning which in turn would make the wheels spin. I also had to get the 3 ultrasonic sensors working as well. I also made code for both to spin the motors either forward, backward, left, and right. I also made code for the ultrasonic sensors as well which uses the pi to send a signal to the trig to release a burst of ultrasonic sounds approxiametley 40,000 hz. The sound travels out then hit the object bounces back and  you get the distance. 
+
+Challenges faced: 
+
+
 
 # First Milestone
+Summary
 
-...
+The goal of the first milestone was to build the foundation of the ball tracking robot project which includes assembling the robot chasiss, get the Rabpberry Pi running installing the nesscary softwares as well as rcompelting all the elctronic connections which includes (wiring the double motors to the I9110 motor driver, the 3 ultrasonic sensors, and power). The pi drives the motors, the camera is added onto the pi to be able to track the red ball and make the robot follow it as well. 
+
+Components Used:
+
+Raspberry Pi 4 Model B: This is the brain behind everything. It runs the code and controls everything about the robot from the sensors to the motors.
+
+PiCamera(OV5647): This is the camera that helps in detecting the ball which is used in the later milestons
+
+L9110 Motor Driver: This H bridge board is used to let the pi controol the motors I switched this after using the L298N motor driver
+
+2x yellow tt motors: These spin the wheels in order to make the robot move
+
+2x wheels and front caster: These wheels drive the robot and that caster helps mount the ultrasonic sensors on the frotn
+
+3x HC-SRO4 Ultranoic Sensors: These are used to measure the distance for obstacle detection
+
+Resiotrs (1k and 2k): These are used to build the voltagae dividors and they help protect the pi 3.3v from the 5v sensor signals. 
+
+Breadboard: This is the main hub for connecting all the voltage dividers, the power, and the sensor wiring.
+
+Jumper Wires: these help connect all the components together.
+
+4 AA BAttery Pack(6v): This helps to power the motors on and spin the motors.
+
+USB-C Powerbank: Helps to power on the pi and make the robot move.
+
+Clear Acrylic 2wd Chasis: This is the frame that holds everything together in place. 
+
+Challenges: 
+
+Some challenges that I faced was getting the motors running that was the biggest problem. I tried 4 different L298N motor driver board because the first one arrived as defective and it was missing all the screw terminals as well as was pre soldered which made it very very hard to even connect the battery and the motor wires reliably and safe. 
+
+The biggest problem that tooks a 2 weeks or so was supplying power to the motor. The board would not power on through the 12v input while using the L298N board I tried using the 6v, 7.5v, and then the 9v batteyr packs and nothing was working. I had to systematically test each part which included the battery holder the batteries, the motors, the pi, and then the wiring to see where the exact problem was. 
+
+Another issue was unreliable connections which was the hardest part because I thought that everything looked correct but in the end I relaized that some wires werent making correct connections to the rasberry pi board or to the breadboard. I was also missing some connections as I was progressing way to fast. 
+
+After all these problems there was one simple fix that I could've done a while back which wouldve saved a bunch of time and that was by changing the motor driver to the I9110 motordriver. The L9110 uses a single power input instead of multiplee seerate inputs and logic which makes everything much more simpler. 
+
+What's next: 
+
+Make the motors work when connected to the motordrvier as well as make the ultrasonic sensors detect the distance of an object when placed in front of it. 
 
 # Schematics
 
-...
-
 # Code
-
 ```cpp
 void setup() {
   Serial.begin(9600);
   Serial.println("Hello World!");
 }
-
 void loop() {
-
 }
 ```
 
--->
-
 # Bill of Materials
-
 | **Part** | **Note** | **Price** | **Link** |
 |:--:|:--:|:--:|:--:|
 | Raspberri Pi 4 Model B	 | small computer that is used for controling the robot as well as typing code | $Price | Link |
@@ -62,25 +91,13 @@ void loop() {
 | Basic connections components kit | Includes nesscary components such as the male to male and female to female as well as the male to female jumper wires, resistors, and LED'S. | $Price | Link |
 | Soldering Kit |Soldering Kit is used for the motor connections. | $Price | Link |
 
-
-
-
 # Starter Project: Retro Arcade
-
 <iframe width="560" height="315" src="https://www.youtube.com/embed/BF2v-AP0EPY?si=9xm23H1ms8oinXFz" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>
-
 My starter project was the retro arcade console. How it works is basically by receiving input by all the buttons on the front display which get processed through the integrated circuits which displays the game on a LED display. It also includes a buzzer for sound effects as well as runs on batteries. After I soldered all the electronic components onto the circuit board, I could play games such as Tetris and Snake with the system helping keep track of the player's score. This project taught me how to solder electronics to circuit boards, identify electronic components, and troubleshoot electrical connections. Making the Retro Arcade Console helped prepare me a lot for my main project, the Ball Tracking Robot.
 
-<!--
-
 # Other Resources/Examples
-
 One of the best parts about Github is that you can view how other people set up their own work.
-
 - [Example 1](https://trashytuber.github.io/YimingJiaBlueStamp/)
 - [Example 2](https://sviatil0.github.io/Sviatoslav_BSE/)
 - [Example 3](https://arneshkumar.github.io/arneshbluestamp/)
-
 To watch the BSE tutorial on how to create a portfolio, click here.
-
--->
