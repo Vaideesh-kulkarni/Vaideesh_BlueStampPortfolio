@@ -13,11 +13,7 @@ Summary:
 
 My second milestone was the biggest portion of my project. I had to get the motors spinning which in turn would make the wheels spin. I also had to get the 3 ultrasonic sensors working as well. I also made code for both to spin the motors either forward, backward, left, and right. I also made code for the ultrasonic sensors as well which uses the pi to send a signal to the trig to release a burst of ultrasonic sounds approxiametley 40,000 hz. The sound travels out then hit the object bounces back and  you get the distance. 
 
-Challenges faced: Some challenges that I faced included the the motors not spinning even while the pi was powered on and the wires were totally fine something was just wrong. I had to check every individually using a multimeter from each individual pin on the pi to testing if the pins would light up an led on the breadboard at all. There was also the problem of not finding replacemnt parts for the L298N motor driver. After I got the new motor driver I put in the wires made the connections and still nothing with all 4 boards. That part confused me the most until I decided to try the L9110 motor driver out. I connected the pi gnd to the new motor drivers gnd made all the nesscary connections and the motors were fifanlly spinning. Another challenge that I had was getting the ultrasonic sensors to output numbers that made sense and to detect objects in front of the sensor. I fixed that by changing my calculations as well as reseating cables on the breadboard and making new connections.
-
-What's next:
-
-Connect the camera to the Rasberry pi and add code so that the camera can track the ball. I will also write the OpenCV code so that the robot can detect the red ball and then combine the camera, sensors, and motors all together so it can track the ball and avoid any obstacles in the way.
+Challenges: 
 
 Some challenges that I faced was getting the motors running that was the biggest problem. I tried 4 different L298N motor driver board because the first one arrived as defective and it was missing all the screw terminals as well as was pre soldered which made it very very hard to even connect the battery and the motor wires reliably and safe. 
 
@@ -26,6 +22,12 @@ The biggest problem that tooks a 2 weeks or so was supplying power to the motor.
 Another issue was unreliable connections which was the hardest part because I thought that everything looked correct but in the end I relaized that some wires werent making correct connections to the rasberry pi board or to the breadboard. I was also missing some connections as I was progressing way to fast. 
 
 After all these problems there was one simple fix that I could've done a while back which wouldve saved a bunch of time and that was by changing the motor driver to the I9110 motordriver. The L9110 uses a single power input instead of multiplee seerate inputs and logic which makes everything much more simpler. 
+
+What's next:
+
+Connect the camera to the Rasberry pi and add code so that the camera can track the ball. I will also write the OpenCV code so that the robot can detect the red ball and then combine the camera, sensors, and motors all together so it can track the ball and avoid any obstacles in the way.
+
+
 
 
 # First Milestone
