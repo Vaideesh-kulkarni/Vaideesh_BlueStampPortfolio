@@ -7,7 +7,7 @@ The Ball Tracking Robot with OpenCv uses a Rasberry pi 4 computer, a 5mp camera,
 <iframe width="560" height="315" src="https://www.youtube.com/embed/F7M7imOVGug" frameborder="0" allowfullscreen></iframe>
 
 # Second Milestone
-<iframe width="560" height="315" src="https://www.youtube.com/embed/y3VAmNlER5Y" frameborder="0" allowfullscreen></iframe>
+<iframe width="828" height="474" src="https://www.youtube.com/embed/lQya6fe888A" title="Vaideesh K. Milestone 2" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>
 
 Summary: 
 
