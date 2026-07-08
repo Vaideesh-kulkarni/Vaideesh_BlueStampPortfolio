@@ -29,6 +29,9 @@ After all these problems there was one simple fix that I could've done a while b
 
 
 # First Milestone
+
+<iframe width="1177" height="662" src="https://www.youtube.com/embed/zEN702sMDmo" title="Vaideesh K. Milestone 1" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>
+
 Summary
 
 The goal of the first milestone was to build the foundation of the ball tracking robot project which includes assembling the robot chasiss, get the Rabpberry Pi running installing the nesscary softwares as well as rcompelting all the elctronic connections which includes (wiring the double motors to the I9110 motor driver, the 3 ultrasonic sensors, and power). The pi drives the motors, the camera is added onto the pi to be able to track the red ball and make the robot follow it as well. 
