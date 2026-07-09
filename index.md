@@ -6,7 +6,7 @@ The Ball Tracking Robot with OpenCV uses a Raspberry Pi 4 computer, a 5MP camera
 |:---|:---|:---|:---|
 | Vaideesh K | Cupertino High School | Electrical Engineering | Incoming Senior |
 
-![Headshot](images/headshot.jpg)
+![Headshot](headshot.jpg)
 ---
 
 # Final Milestone
