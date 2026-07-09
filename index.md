@@ -151,18 +151,18 @@ except KeyboardInterrupt:
 # Bill of Materials
 | **Part** | **Note** | **Price** | **Link** |
 |:--:|:--:|:--:|:--:|
-| Raspberri Pi 4 Model B	 | small computer that is used for controling the robot as well as typing code | $Price | Link |
-| Raspberry Pi Camera Module | Camera is used for live video and seeing the ball | $Price | Link |
-| L298N Driver Board | A basic motor driver that is used to drive the wheels forward and backward. | $Price | Link |
-|Motors and Board kit | Basic hardware pieces that help with the assembly of the robot | $Price | Link |
-| Powerbank| To supply power to the rasberry pi 4 | $Price | Link |
-| HC-SR04 sensors (5 pcs)	 | Used for the difstance calulations of objects and obstacles that are unwanted. | $Price | Link |
-| HDMI to micro HDMI cable	 | Connecting the Rasberri pi 4 to the laptop to show on OBS video stream | $Price | Link |
-| Video Capture card | Nessecary to display onto laptops | $Price | Link |
-| SD card reader | Nessecary to flash microSD and install an os onto it | $Price | Link |
-| Wired Mouse and Keyboard | Seperate mouse and keyboard needed to operate the Raberri Pi 4 | $Price | Link |
-| Basic connections components kit | Includes nesscary components such as the male to male and female to female as well as the male to female jumper wires, resistors, and LED'S. | $Price | Link |
-| Soldering Kit |Soldering Kit is used for the motor connections. | $Price | Link |
+| Raspberri Pi 4 Model B	 | small computer that is used for controling the robot as well as typing code | $79.97 | [Link](https://www.amazon.com/Raspberry-Model-2019-Quad-Bluetooth/dp/B07TC2BK1X?source=ps-sl-shoppingads-lpcontext&ref_=fplfs&smid=A2QE71HEBJRNZE&th=1) |
+| Raspberry Pi Camera Module | Camera is used for live video and seeing the ball | $14.99 | [Link](https://www.amazon.com/Arducam-Autofocus-Raspberry-Motorized-Software/dp/B07SN8GYGD/ref=sr_1_5?crid=3236VFT39VAPQ&keywords=picamera&qid=1689698732&s=electronics&sprefix=picamer%2Celectronics%2C138&sr=1-5) |
+| L298N Driver Board | A basic motor driver that is used to drive the wheels forward and backward. | $8.99 | Link |
+|Motors and Board kit | Basic hardware pieces that help with the assembly of the robot | $13.59 | Link |
+| Powerbank| To supply power to the rasberry pi 4 | $21.98 | Link |
+| HC-SR04 sensors (5 pcs)	 | Used for the difstance calulations of objects and obstacles that are unwanted. | $8.99 | Link |
+| HDMI to micro HDMI cable	 | Connecting the Rasberri pi 4 to the laptop to show on OBS video stream | $8.99 | Link |
+| Video Capture card | Nessecary to display onto laptops | $16.99 | Link |
+| SD card reader | Nessecary to flash microSD and install an os onto it | $4.99 | Link |
+| Wired Mouse and Keyboard | Seperate mouse and keyboard needed to operate the Raberri Pi 4 | $25.99 | Link |
+| Basic connections components kit | Includes nesscary components such as the male to male and female to female as well as the male to female jumper wires, resistors, and LED'S. | $11.47 | Link |
+| Soldering Kit |Soldering Kit is used for the motor connections. | $13.60 | Link |
 
 # Starter Project: Retro Arcade
 <iframe width="560" height="315" src="https://www.youtube.com/embed/BF2v-AP0EPY?si=9xm23H1ms8oinXFz" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>
