@@ -166,11 +166,26 @@ except KeyboardInterrupt:
 
 # Starter Project: Retro Arcade
 <iframe width="560" height="315" src="https://www.youtube.com/embed/BF2v-AP0EPY?si=9xm23H1ms8oinXFz" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>
+
+Summary: 
+
 My starter project was the retro arcade console. How it works is basically by receiving input by all the buttons on the front display which get processed through the integrated circuits which displays the game on a LED display. It also includes a buzzer for sound effects as well as runs on batteries. After I soldered all the electronic components onto the circuit board, I could play games such as Tetris and Snake with the system helping keep track of the player's score. This project taught me how to solder electronics to circuit boards, identify electronic components, and troubleshoot electrical connections. Making the Retro Arcade Console helped prepare me a lot for my main project, the Ball Tracking Robot.
+
+Components Used:
+-Microcontroller 
+-Small LCD Screen
+-Buzzer
+-Capacitors
+-4 x AA Battery holder/ AA batteries
+-PCB (Circuit Board) 
+-Solder Kit
+-Header Pins
+-Acrylic Case
+-Variety Of Colored Buttons
 
 # Other Resources/Examples
 One of the best parts about Github is that you can view how other people set up their own work.
-- [Example 1](https://trashytuber.github.io/YimingJiaBlueStamp/)
-- [Example 2](https://sviatil0.github.io/Sviatoslav_BSE/)
-- [Example 3](https://arneshkumar.github.io/arneshbluestamp/)
-To watch the BSE tutorial on how to create a portfolio, click here.
+- [CLAUDE AI]([https://trashytuber.github.io/YimingJiaBlueStamp/](https://claude.ai/share/d7c5e0e6-0105-45f7-9baa-1b5a52f87b24))
+- [PORTFOLIO HELP](https://deringur.github.io/BSE_Derin_Portfolio/)
+- [RASBERRY PI 4 MODEL B PIN LAYOUT](https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSo_bcd9R6ZhFa1BB1bqjqTkYidBfHI8zQddPhKNSacHQ&s)
+
