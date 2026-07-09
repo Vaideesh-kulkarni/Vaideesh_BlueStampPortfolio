@@ -1,85 +1,86 @@
 # Ball Tracking Robot with OpenCV: Computer Vision
-The Ball Tracking Robot with OpenCv uses a Rasberry pi 4 computer, a 5mp camera, and python to create a robot that avoids obstacles, moves independently, and can make decisions on where to navigate. This project involves using circuits to make connections, hardware and software integrations, as well as programming.
 
-| Vaideesh K | Cupertino Highschool | Electrical Engineering | Incoming Senior |
-![Headstone Image](logo.svg)
+The Ball Tracking Robot with OpenCV uses a Raspberry Pi 4 computer, a 5MP camera, and Python to create a robot that avoids obstacles, moves independently, and makes decisions about where to navigate. This project involves building circuits to make connections, integrating hardware and software, and programming.
+
+| **Engineer** | **School** | **Area of Interest** | **Grade** |
+|:---|:---|:---|:---|
+| Vaideesh K | Cupertino High School | Electrical Engineering | Incoming Senior |
+
+![Headshot](logo.svg)
+
+---
+
 # Final Milestone
-<iframe width="560" height="315" src="https://www.youtube.com/embed/F7M7imOVGug" frameborder="0" allowfullscreen></iframe>
+
+<iframe width="560" height="315" src="https://www.youtube.com/embed/F7M7imOVGug" title="Final Milestone" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen></iframe>
+
+---
 
 # Second Milestone
-<iframe width="828" height="474" src="https://www.youtube.com/embed/lQya6fe888A" title="Vaideesh K. Milestone 2" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>
 
-Summary: 
+<iframe width="560" height="315" src="https://www.youtube.com/embed/lQya6fe888A" title="Vaideesh K. Milestone 2" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen></iframe>
 
-My second milestone was the biggest portion of my project. I had to get the motors spinning which in turn would make the wheels spin. I also had to get the 3 ultrasonic sensors working as well. I also made code for both to spin the motors either forward, backward, left, and right. I also made code for the ultrasonic sensors as well which uses the pi to send a signal to the trig to release a burst of ultrasonic sounds approxiametley 40,000 hz. The sound travels out then hit the object bounces back and  you get the distance. 
+**Summary**
 
-Challenges: 
+My second milestone was the biggest portion of my project. I had to get the motors spinning, which in turn makes the wheels spin, and I had to get all three ultrasonic sensors working. I wrote code for both — the motor code drives the robot forward, backward, left, and right, and the sensor code uses the Pi to send a signal to the Trigger pin, releasing a burst of ultrasonic sound at approximately 40,000 Hz. The sound travels out, hits an object, and bounces back, and the time it takes to return is used to calculate the distance.
 
-Some challenges that I faced was getting the motors running that was the biggest problem. I tried 4 different L298N motor driver board because the first one arrived as defective and it was missing all the screw terminals as well as was pre soldered which made it very very hard to even connect the battery and the motor wires reliably and safe. 
+**Challenges**
 
-The biggest problem that tooks a 2 weeks or so was supplying power to the motor. The board would not power on through the 12v input while using the L298N board I tried using the 6v, 7.5v, and then the 9v batteyr packs and nothing was working. I had to systematically test each part which included the battery holder the batteries, the motors, the pi, and then the wiring to see where the exact problem was. 
+The biggest challenge I faced was getting the motors running. I tried four different L298N motor driver boards because the first one arrived defective — it was missing all of its screw terminals and had pads that were already soldered shut, which made it very difficult to connect the battery and motor wires reliably and safely.
 
-Another issue was unreliable connections which was the hardest part because I thought that everything looked correct but in the end I relaized that some wires werent making correct connections to the rasberry pi board or to the breadboard. I was also missing some connections as I was progressing way to fast. 
+The problem that took about two weeks to solve was supplying power to the motors. The board would not power on through the +12V input while I was using the L298N. I tried 6V, 7.5V, and 9V battery packs, and nothing worked. I had to systematically test each part — the battery holder, the batteries, the motors, the Pi, and the wiring — to isolate exactly where the problem was.
 
-After all these problems there was one simple fix that I could've done a while back which wouldve saved a bunch of time and that was by changing the motor driver to the I9110 motordriver. The L9110 uses a single power input instead of multiplee seerate inputs and logic which makes everything much more simpler. 
+Another issue was unreliable connections, which was the hardest part because everything *looked* correct, but I eventually realized some wires weren't making solid contact with the Raspberry Pi or the breadboard. I was also missing a few connections because I was progressing too quickly.
 
-What's next:
+After all of these problems, there was one simple fix that would have saved a lot of time: switching to the L9110 motor driver. The L9110 uses a single power input instead of separate logic and motor inputs, which makes everything much simpler — and once I switched, the motors finally spun.
 
-Connect the camera to the Rasberry pi and add code so that the camera can track the ball. I will also write the OpenCV code so that the robot can detect the red ball and then combine the camera, sensors, and motors all together so it can track the ball and avoid any obstacles in the way.
+**What's Next**
 
+Connect the camera to the Raspberry Pi and add code so it can track the ball. I will write the OpenCV code so the robot can detect the red ball, then combine the camera, sensors, and motors so it can track the ball and avoid obstacles in its path.
 
-
+---
 
 # First Milestone
 
-<iframe width="1177" height="662" src="https://www.youtube.com/embed/zEN702sMDmo" title="Vaideesh K. Milestone 1" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>
+<iframe width="560" height="315" src="https://www.youtube.com/embed/zEN702sMDmo" title="Vaideesh K. Milestone 1" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen></iframe>
 
-Summary
+**Summary**
 
-The goal of the first milestone was to build the foundation of the ball tracking robot project which includes assembling the robot chasiss, get the Rabpberry Pi running installing the nesscary softwares as well as rcompelting all the elctronic connections which includes (wiring the double motors to the I9110 motor driver, the 3 ultrasonic sensors, and power). The pi drives the motors, the camera is added onto the pi to be able to track the red ball and make the robot follow it as well. 
+The goal of the first milestone was to build the foundation of the ball-tracking robot: assembling the robot chassis, getting the Raspberry Pi running with the necessary software installed, and completing all of the electronic connections (wiring the two motors to the L9110 motor driver, the three ultrasonic sensors, and the power). The Pi drives the motors, and the camera is added so the robot can track the red ball and follow it.
 
-Components Used:
+**Components Used**
 
-Raspberry Pi 4 Model B: This is the brain behind everything. It runs the code and controls everything about the robot from the sensors to the motors.
+- **Raspberry Pi 4 Model B** — the brain behind everything. It runs the code and controls the robot, from the sensors to the motors.
+- **PiCamera (OV5647)** — the camera that detects the ball (used in later milestones).
+- **L9110 Motor Driver** — an H-bridge board that lets the Pi control the motors. I switched to this after using the L298N.
+- **2× Yellow TT Motors** — spin the wheels to move the robot.
+- **2× Wheels + Front Caster** — the wheels drive the robot, and the caster helps balance it and mount the front sensors.
+- **3× HC-SR04 Ultrasonic Sensors** — measure distance for obstacle detection.
+- **Resistors (1kΩ and 2kΩ)** — build the voltage dividers that protect the Pi's 3.3V pins from the sensors' 5V signals.
+- **Breadboard** — the main hub for connecting the voltage dividers, power, and sensor wiring.
+- **Jumper Wires** — connect all the components together.
+- **4×AA Battery Pack (6V)** — powers the motors.
+- **USB-C Powerbank** — powers the Pi.
+- **Clear Acrylic 2WD Chassis** — the frame that holds everything together.
 
-PiCamera(OV5647): This is the camera that helps in detecting the ball which is used in the later milestons
+**Challenges**
 
-L9110 Motor Driver: This H bridge board is used to let the pi controol the motors I switched this after using the L298N motor driver
+The challenges I faced were finding diagrams to help me make the electrical connections and making all of the connections myself. There were nearly 40 connections to make, and the wires kept getting tangled, the resistors kept getting unplugged, and everything was disorganized. I had to reseat and redo cables multiple times, but in the end I got them organized. I also ran into a problem where some cables were dead, so I used a multimeter to find and replace them.
 
-2x yellow tt motors: These spin the wheels in order to make the robot move
+**What's Next**
 
-2x wheels and front caster: These wheels drive the robot and that caster helps mount the ultrasonic sensors on the frotn
+Make the motors work when connected to the motor driver, and make the ultrasonic sensors detect the distance of an object placed in front of them.
 
-3x HC-SRO4 Ultranoic Sensors: These are used to measure the distance for obstacle detection
+---
 
-Resiotrs (1k and 2k): These are used to build the voltagae dividors and they help protect the pi 3.3v from the 5v sensor signals. 
+# Code
 
-Breadboard: This is the main hub for connecting all the voltage dividers, the power, and the sensor wiring.
+## Basic Code for the Motor Driver
 
-Jumper Wires: these help connect all the components together.
+This code uses basic WASD controls to move the robot, which is useful for testing the most basic mechanics of the motors. It also confirms that the wiring to the motor driver and the Raspberry Pi is correct. The HIGH/LOW combinations create different patterns, which cause the changes in direction.
 
-4 AA BAttery Pack(6v): This helps to power the motors on and spin the motors.
-
-USB-C Powerbank: Helps to power on the pi and make the robot move.
-
-Clear Acrylic 2wd Chasis: This is the frame that holds everything together in place. 
-
-Challenges: 
-
-Challenges that I faced was finding diagrams that would help me make the elctrical connections in the project as well as making the connections myself. There were many connections I had to make almost 40 and wires were getting tangled, the resisotrs were getting unplugged and so much unorganization. I had to reseat and redo cables multiple times but in the end I got organiized cables. There was also the problem in that some of the cables were dead so I had to use the multimeter to help me in that regard. 
-
-What's next: 
-
-Make the motors work when connected to the motordrvier as well as make the ultrasonic sensors detect the distance of an object when placed in front of it. 
-
-# Schematics
-
-# Basic code for motor driver
-
-This code used basic wasd controls to move the robot which is very useful for testing the most basic mechanics of the motors as well. It also helps to confirm that the wiring is correct to the motor driver as well as the Rasberry pi 4 model B. The HIGH/LOW combinations causes different patterns which causes the changes in direction. 
-
-
-```import RPi.GPIO as GPIO
+```python
+import RPi.GPIO as GPIO
 GPIO.setmode(GPIO.BCM)
 
 A1A = 6; A1B = 5; B1A = 22; B2A = 23
@@ -105,25 +106,22 @@ print("w=forward s=back a=left d=right x=stop q=quit")
 try:
     while True:
         u = input("move: ")
-        if u=='w': forward()
-        elif u=='s': backward()
-        elif u=='a': left()
-        elif u=='d': right()
-        elif u=='x': stop()
-        elif u=='q': break
+        if u == 'w': forward()
+        elif u == 's': backward()
+        elif u == 'a': left()
+        elif u == 'd': right()
+        elif u == 'x': stop()
+        elif u == 'q': break
 except KeyboardInterrupt:
     pass
 GPIO.cleanup()
-
 ```
 
+## Basic Code for the Ultrasonic Sensors
 
-# Basic code for ultrasonic sensors
+This code tests whether the ultrasonic sensors work. It measures the distance to an object by firing a pulse from each sensor, timing how long the echo takes to return, and using the speed of sound to calculate the distance. It reads all three sensors — left, center, and right — and prints their distances.
 
-What this code does is test if the ultrasonic sensors work. The code measures the distance to an object using 
-
-
-```cat > sensortest.py << 'EOF'
+```python
 import RPi.GPIO as GPIO
 import time
 GPIO.setmode(GPIO.BCM)
@@ -166,51 +164,59 @@ try:
         time.sleep(0.5)
 except KeyboardInterrupt:
     GPIO.cleanup()
-EOF
 ```
 
+---
+
 # Bill of Materials
+
 | **Part** | **Note** | **Price** | **Link** |
-|:--:|:--:|:--:|:--:|
-| Raspberri Pi 4 Model B	 | small computer that is used for controling the robot as well as typing code | $79.97 | [Link](https://www.amazon.com/Raspberry-Model-2019-Quad-Bluetooth/dp/B07TC2BK1X?source=ps-sl-shoppingads-lpcontext&ref_=fplfs&smid=A2QE71HEBJRNZE&th=1) |
-| Raspberry Pi Camera Module | Camera is used for live video and seeing the ball | $14.99 | [Link](https://www.amazon.com/Arducam-Autofocus-Raspberry-Motorized-Software/dp/B07SN8GYGD/ref=sr_1_5?crid=3236VFT39VAPQ&keywords=picamera&qid=1689698732&s=electronics&sprefix=picamer%2Celectronics%2C138&sr=1-5) |
-| L298N Driver Board | A basic motor driver that is used to drive the wheels forward and backward. | $8.99 | [Link](https://www.amazon.com/Qunqi-2Packs-Controller-Stepper-Arduino/dp/B01M29YK5U/ref=sr_1_1_sspa?crid=3DE9ZH0NI3KJX&keywords=l298n&qid=1689698859&s=electronics&sprefix=l298n%2Celectronics%2C164&sr=1-1-spons&sp_csd=d2lkZ2V0TmFtZT1zcF9hdGY&psc=1) |
-|Motors and Board kit | Basic hardware pieces that help with the assembly of the robot | $13.59 | [Link](https://www.amazon.com/Smart-Chassis-Motors-Encoder-Battery/dp/B01LXY7CM3/ref=sr_1_4?crid=27ACD61NPNLO4&keywords=robot+car+kit&qid=1689698962&s=electronics&sprefix=robot+car+kit%2Celectronics%2C169&sr=1-4) |
-| Powerbank| To supply power to the rasberry pi 4 | $21.98 | [Link](https://www.amazon.com/Anker-Ultra-Compact-High-Speed-VoltageBoost-Technology/dp/B07QXV6N1B/ref=sr_1_1_sspa?crid=53ULGW8ZNDOW&keywords=power+bank&qid=1689699045&s=electronics&sprefix=power+bank%2Celectronics%2C144&sr=1-1-spons&sp_csd=d2lkZ2V0TmFtZT1zcF9hdGY&psc=1) |
-| HC-SR04 sensors (5 pcs)	 | Used for the difstance calulations of objects and obstacles that are unwanted. | $8.99 | [Link](https://www.amazon.com/Organizer-Ultrasonic-Distance-MEGA2560-ElecRight/dp/B07RGB4W8V/ref=sr_1_2?crid=UYI359LWAAVU&keywords=hc+sr04+ultrasonic+sensor+3+pc&qid=1689699122&s=electronics&sprefix=hc+sr04+ultrasonic+sensor+3+pc%2Celectronics%2C123&sr=1-2) |
-| HDMI to micro HDMI cable	 | Connecting the Rasberri pi 4 to the laptop to show on OBS video stream | $8.99 | [Link](https://www.amazon.com/UGREEN-Adapter-Ethernet-Compatible-Raspberry/dp/B06WWQ7KLV/ref=sr_1_5?crid=3S06RDX7B1X4O&keywords=hdmi+to+micro+hdmi&qid=1689699482&s=electronics&sprefix=hdmi+to+micro%2Celectronics%2C132&sr=1-5) |
-| Video Capture card | Nessecary to display onto laptops | $16.99 | [Link](https://www.amazon.com/Capture-Streaming-Broadcasting-Conference-Teaching/dp/B09FLN63B3/ref=sr_1_3?crid=19YSORXLTIALH&keywords=video+capture+card&qid=1689699799&s=electronics&sprefix=video+capture+car%2Celectronics%2C140&sr=1-3) |
-| SD card reader | Nessecary to flash microSD and install an os onto it | $4.99 | [Link](https://www.amazon.com/Reader-Adapter-Camera-Memory-Wansurs/dp/B0B9QZ4W4Y/ref=sr_1_4?crid=F124KSQOC5SO&keywords=sd+card+reader&qid=1689869007&sprefix=sd+card+reader%2Caps%2C126&sr=8-4) |
-| Wired Mouse and Keyboard | Seperate mouse and keyboard needed to operate the Raberri Pi 4 | $25.99 | [Link](https://www.amazon.com/Wireless-Keyboard-Trueque-Cordless-Computer/dp/B09J4RQFK7/ref=sr_1_1_sspa?crid=2R048HRMFBA7Z&keywords=mouse+and+keyboard+wireless&qid=1689871090&sprefix=mouse+and+keyboard+wireless+%2Caps%2C131&sr=8-1-spons&sp_csd=d2lkZ2V0TmFtZT1zcF9hdGY&psc=1) |
-| Basic connections components kit | Includes nesscary components such as the male to male and female to female as well as the male to female jumper wires, resistors, and LED'S. | $11.47 | [Link](https://www.amazon.com/Smraza-Breadboard-Resistors-Mega2560-Raspberry/dp/B01HRR7EBG/ref=sr_1_16?crid=27G99F3EADUCG&keywords=breadboard+1+pc&qid=1689894556&sprefix=breadboard+1+p%2Caps%2C185&sr=8-16) |
-| Soldering Kit |Soldering Kit is used for the motor connections. | $13.60 | [Link](https://www.amazon.com/Soldering-Interchangeable-Adjustable-Temperature-Enthusiast/dp/B087767KNW/ref=sr_1_5?crid=1QYWI5SBQAPH0&keywords=soldering+kit&qid=1689900771&sprefix=soldering+kit%2Caps%2C169&sr=8-5) |
+|:---|:---|:---|:---|
+| Raspberry Pi 4 Model B | Small computer used for controlling the robot and writing code | $79.97 | [Link](https://www.amazon.com/Raspberry-Model-2019-Quad-Bluetooth/dp/B07TC2BK1X) |
+| Raspberry Pi Camera Module | Camera used for live video and seeing the ball | $14.99 | [Link](https://www.amazon.com/Arducam-Autofocus-Raspberry-Motorized-Software/dp/B07SN8GYGD) |
+| L298N Driver Board | A basic motor driver used to drive the wheels forward and backward | $8.99 | [Link](https://www.amazon.com/Qunqi-2Packs-Controller-Stepper-Arduino/dp/B01M29YK5U) |
+| Motors and Board Kit | Basic hardware pieces that help with the assembly of the robot | $13.59 | [Link](https://www.amazon.com/Smart-Chassis-Motors-Encoder-Battery/dp/B01LXY7CM3) |
+| Powerbank | Supplies power to the Raspberry Pi 4 | $21.98 | [Link](https://www.amazon.com/Anker-Ultra-Compact-High-Speed-VoltageBoost-Technology/dp/B07QXV6N1B) |
+| HC-SR04 Sensors (5 pcs) | Used for distance calculations of objects and obstacles | $8.99 | [Link](https://www.amazon.com/Organizer-Ultrasonic-Distance-MEGA2560-ElecRight/dp/B07RGB4W8V) |
+| HDMI to Micro HDMI Cable | Connects the Raspberry Pi 4 to a laptop for the OBS video stream | $8.99 | [Link](https://www.amazon.com/UGREEN-Adapter-Ethernet-Compatible-Raspberry/dp/B06WWQ7KLV) |
+| Video Capture Card | Necessary to display the Pi's output on laptops | $16.99 | [Link](https://www.amazon.com/Capture-Streaming-Broadcasting-Conference-Teaching/dp/B09FLN63B3) |
+| SD Card Reader | Necessary to flash the microSD card and install an OS | $4.99 | [Link](https://www.amazon.com/Reader-Adapter-Camera-Memory-Wansurs/dp/B0B9QZ4W4Y) |
+| Wired Mouse and Keyboard | Needed to operate the Raspberry Pi 4 | $25.99 | [Link](https://www.amazon.com/Wireless-Keyboard-Trueque-Cordless-Computer/dp/B09J4RQFK7) |
+| Basic Connections Components Kit | Includes male-to-male, female-to-female, and male-to-female jumper wires, resistors, and LEDs | $11.47 | [Link](https://www.amazon.com/Smraza-Breadboard-Resistors-Mega2560-Raspberry/dp/B01HRR7EBG) |
+| Soldering Kit | Used for the motor connections | $13.60 | [Link](https://www.amazon.com/Soldering-Interchangeable-Adjustable-Temperature-Enthusiast/dp/B087767KNW) |
+
+---
 
 # Starter Project: Retro Arcade
-<iframe width="560" height="315" src="https://www.youtube.com/embed/BF2v-AP0EPY?si=9xm23H1ms8oinXFz" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>
 
-Summary: 
+<iframe width="560" height="315" src="https://www.youtube.com/embed/BF2v-AP0EPY" title="Retro Arcade Starter Project" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen></iframe>
 
-My starter project was the retro arcade console. How it works is basically by receiving input by all the buttons on the front display which get processed through the integrated circuits which displays the game on a LED display. It also includes a buzzer for sound effects as well as runs on batteries. After I soldered all the electronic components onto the circuit board, I could play games such as Tetris and Snake with the system helping keep track of the player's score. This project taught me how to solder electronics to circuit boards, identify electronic components, and troubleshoot electrical connections. Making the Retro Arcade Console helped prepare me a lot for my main project, the Ball Tracking Robot.
+**Summary**
 
-Components Used:
--Microcontroller 
--Small LCD Screen
--Buzzer
--Capacitors
--4 x AA Battery holder/ AA batteries
--PCB (Circuit Board) 
--Solder Kit
--Header Pins
--Acrylic Case
--Variety Of Colored Buttons
+My starter project was the Retro Arcade Console. It works by receiving input from the buttons on the front display, which is processed through the integrated circuits and displayed on an LCD screen. It also includes a buzzer for sound effects and runs on batteries. After I soldered all of the electronic components onto the circuit board, I could play games like Tetris and Snake, with the system keeping track of the player's score. This project taught me how to solder electronics to circuit boards, identify electronic components, and troubleshoot electrical connections. Building the Retro Arcade Console helped prepare me for my main project, the Ball Tracking Robot.
 
-Challenges Faced:
+**Components Used**
 
-There were some challenged that were faced some harder than others. My first challenge was making solders to the board as everytime I soldered the solder wire was always getting attachted to other solder holes which could cause a short circuit and damge the board. There was also the problem of getting the red and black battery wires to attach neatly in these two tiny holes and hold them so I could solder them properly. I had to unsolder many parts multiple times as the retro arcade console simply was not turning on. But even after all these hardships I managed to fix every one of them and get the console working properly. 
+- Microcontroller
+- Small LCD Screen
+- Buzzer
+- Capacitors
+- 4×AA Battery Holder / AA Batteries
+- PCB (Circuit Board)
+- Solder Kit
+- Header Pins
+- Acrylic Case
+- Variety of Colored Buttons
 
-# Other Resources/Examples
-One of the best parts about Github is that you can view how other people set up their own work.
-- [CLAUDE AI](https://claude.ai/share/d7c5e0e6-0105-45f7-9baa-1b5a52f87b24)
-- [PORTFOLIO HELP](https://deringur.github.io/BSE_Derin_Portfolio/)
-- [RASBERRY PI 4 MODEL B PIN LAYOUT](https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSo_bcd9R6ZhFa1BB1bqjqTkYidBfHI8zQddPhKNSacHQ&s)
+**Challenges Faced**
 
+There were several challenges, some harder than others. My first challenge was soldering the board — every time I soldered, the solder kept bridging to other holes, which could cause a short circuit and damage the board. Another problem was getting the red and black battery wires to sit neatly in two tiny holes and holding them in place so I could solder them properly. I had to unsolder many parts multiple times because the console simply would not turn on. But after all of these hardships, I managed to fix every one of them and get the console working properly.
+
+---
+
+# Other Resources / Examples
+
+One of the best parts about GitHub is that you can view how other people set up their own work.
+
+- [Portfolio Help — Derin's BSE Portfolio](https://deringur.github.io/BSE_Derin_Portfolio/)
+- [Raspberry Pi 4 Model B Pin Layout](https://www.raspberrypi.com/documentation/computers/raspberry-pi.html#gpio)
