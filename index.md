@@ -6,7 +6,7 @@ The Ball Tracking Robot with OpenCV uses a Raspberry Pi 4 computer, a 5MP camera
 |:---|:---|:---|:---|
 | Vaideesh K | Cupertino High School | Electrical Engineering | Incoming Senior |
 
-![Headshot](logo.svg)
+![Headshot](https://drive.google.com/file/d/1DbktgB6ssVS7pKV5ElXtDY_UUwbdkfbH/view?usp=sharing)
 
 ---
 
@@ -218,5 +218,6 @@ There were several challenges, some harder than others. My first challenge was s
 
 One of the best parts about GitHub is that you can view how other people set up their own work.
 
+- [Claude Ai help Project](https://claude.ai/share/d7c5e0e6-0105-45f7-9baa-1b5a52f87b24)
 - [Portfolio Help — Derin's BSE Portfolio](https://deringur.github.io/BSE_Derin_Portfolio/)
 - [Raspberry Pi 4 Model B Pin Layout](https://www.raspberrypi.com/documentation/computers/raspberry-pi.html#gpio)
