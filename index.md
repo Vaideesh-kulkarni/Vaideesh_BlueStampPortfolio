@@ -75,6 +75,10 @@ Make the motors work when connected to the motordrvier as well as make the ultra
 # Schematics
 
 # Basic code for motor driver
+
+This code used basic wasd controls to move the robot which is very useful for testing the most basic mechanics of the motors as well. It also helps to confirm that the wiring is correct to the motor driver as well as the Rasberry pi 4 model B. The HIGH/LOW combinations causes different patterns which causes the changes in direction. 
+
+
 ```import RPi.GPIO as GPIO
 GPIO.setmode(GPIO.BCM)
 
@@ -115,37 +119,54 @@ GPIO.cleanup()
 
 
 # Basic code for ultrasonic sensors
-```import RPi.GPIO as GPIO
+
+What this code does is test if the ultrasonic sensors work. The code measures the distance to an object using 
+
+
+```cat > sensortest.py << 'EOF'
+import RPi.GPIO as GPIO
 import time
 GPIO.setmode(GPIO.BCM)
+GPIO.setwarnings(False)
 
-TRIG = 11   # GPIO 11 = pin 23
-ECHO = 12   # GPIO 12 = pin 32 (through divider)
+# All 3 sensors: (name, TRIG, ECHO)
+sensors = [
+    ("LEFT",   19, 26),
+    ("CENTER", 16, 20),
+    ("RIGHT",  11, 12),
+]
 
-GPIO.setup(TRIG, GPIO.OUT)
-GPIO.setup(ECHO, GPIO.IN)
-GPIO.output(TRIG, False)
+for name, trig, echo in sensors:
+    GPIO.setup(trig, GPIO.OUT)
+    GPIO.setup(echo, GPIO.IN)
+    GPIO.output(trig, False)
+
 time.sleep(2)
+
+def measure(trig, echo):
+    start = time.time()
+    stop = time.time()
+    GPIO.output(trig, True)
+    time.sleep(0.00001)
+    GPIO.output(trig, False)
+    timeout = time.time() + 0.05
+    while GPIO.input(echo) == 0 and time.time() < timeout:
+        start = time.time()
+    timeout = time.time() + 0.05
+    while GPIO.input(echo) == 1 and time.time() < timeout:
+        stop = time.time()
+    return round((stop - start) * 34300 / 2, 1)
 
 try:
     while True:
-        GPIO.output(TRIG, True)
-        time.sleep(0.00001)
-        GPIO.output(TRIG, False)
-
-        start = time.time()
-        stop = time.time()
-        while GPIO.input(ECHO) == 0:
-            start = time.time()
-        while GPIO.input(ECHO) == 1:
-            stop = time.time()
-
-        distance = (stop - start) * 34300 / 2
-        print("Distance:", round(distance, 2), "cm")
+        for name, trig, echo in sensors:
+            d = measure(trig, echo)
+            print(name, ":", d, "cm")
+        print("-----")
         time.sleep(0.5)
 except KeyboardInterrupt:
     GPIO.cleanup()
-
+EOF
 ```
 
 # Bill of Materials
@@ -182,6 +203,10 @@ Components Used:
 -Header Pins
 -Acrylic Case
 -Variety Of Colored Buttons
+
+Challenges Faced:
+
+There were some challenged that were faced some harder than others. My first challenge was making solders to the board as everytime I soldered the solder wire was always getting attachted to other solder holes which could cause a short circuit and damge the board. There was also the problem of getting the red and black battery wires to attach neatly in these two tiny holes and hold them so I could solder them properly. I had to unsolder many parts multiple times as the retro arcade console simply was not turning on. But even after all these hardships I managed to fix every one of them and get the console working properly. 
 
 # Other Resources/Examples
 One of the best parts about Github is that you can view how other people set up their own work.
