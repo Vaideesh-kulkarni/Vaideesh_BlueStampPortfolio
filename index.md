@@ -11,7 +11,15 @@ The Ball Tracking Robot with OpenCV uses a Raspberry Pi 4 computer, a 5MP camera
 
 # Final Milestone
 
-<iframe width="560" height="315" src="https://www.youtube.com/embed/F7M7imOVGug" title="Final Milestone" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen></iframe>
+
+**Summary**
+
+My third milestone is the last portion of my project. In this part I have installed a 5 MP Rasberry Pi Camera and used the OpenCV software as well to run the code, It included three eultrasonic sensors, a L9110 motordriver, and two motordrviers. The robot now is able to detect and follow a colored red ball while using the 3 ultrasonic sensors wwhich detect the distant of the right, center, and left of the object and also to detect and avoid obstacles in real time. 
+
+**Challenges**
+
+A major challenge that I faced was getting the camera to be detected by the rasberry pi 4 model B. I ran the code rpicam-hello to turn on that camera and to see if a live camera preview would pop up but that did not not work. The next step I took was powering the pi completley by unplugging the usb-c cable and reseating the camera ribbon to thhe camera modulee as well as the connectors on the rasberry pi 4 model B. I rebooted ran again still did not work so I replaced the camera with 3 different cameras of the same model and with different ribbon cables. I ran the code rpicam-hello -- list-cameras to see if anything would pop up but still no cameras were available. I then ran a update to see if that would fix the issue but nothing. The last resort that I took was creating a camera test. I created a file, then wrote code for the camera, saved and ran it and finally it worked.
+
 
 ---
 
