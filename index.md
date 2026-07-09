@@ -185,7 +185,7 @@ Components Used:
 
 # Other Resources/Examples
 One of the best parts about Github is that you can view how other people set up their own work.
-- [CLAUDE AI]([https://trashytuber.github.io/YimingJiaBlueStamp/](https://claude.ai/share/d7c5e0e6-0105-45f7-9baa-1b5a52f87b24))
+- [CLAUDE AI]([https://trashytuber.github.io/YimingJiaBlueStamp/](https://claude.ai/share/d7c5e0e6-0105-45f7-9baa-1b5a52f87b24/))
 - [PORTFOLIO HELP](https://deringur.github.io/BSE_Derin_Portfolio/)
 - [RASBERRY PI 4 MODEL B PIN LAYOUT](https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSo_bcd9R6ZhFa1BB1bqjqTkYidBfHI8zQddPhKNSacHQ&s)
 
