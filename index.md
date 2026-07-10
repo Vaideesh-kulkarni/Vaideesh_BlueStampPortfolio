@@ -20,6 +20,80 @@ My third and final milestone is the last portion of my project. In this part I i
 
 A major challenge I faced was getting the camera to be detected by the Raspberry Pi 4 Model B. I ran `rpicam-hello` to turn on the camera and check for a live preview, but it did not work. My next step was to completely power down the Pi by unplugging the USB-C cable and reseating the camera ribbon cable at both the camera module and the connector on the Raspberry Pi. I rebooted and ran it again, but it still did not work, so I tried three different cameras of the same model with different ribbon cables. I ran `rpicam-hello --list-cameras` to see if anything would show up, but no cameras were available. I then ran an update to see if that would fix the issue, but nothing changed. As a last resort I created a camera test — I made a file, wrote the camera code, saved it, and ran it, and it finally worked. After that I tuned the OpenCV color detection so it would pick out the red ball and not skin tones, and fixed the camera orientation so the image was right-side up.
 
+**Camera Test Code**
+
+This is the camera test I used to confirm the camera was working with OpenCV. It grabs frames from the Pi Camera using picamera2 and displays them in a live window. Getting this to run was the fix that finally got my camera working after it wouldn't show a preview.
+
+```python
+from picamera2 import Picamera2
+import cv2
+
+picam2 = Picamera2()
+config = picam2.create_preview_configuration(main={"format": "RGB888", "size": (320, 240)})
+picam2.configure(config)
+picam2.start()
+
+print("Camera running - press q in the window to quit")
+while True:
+    frame = picam2.capture_array()
+    cv2.imshow("Camera", frame)
+    if cv2.waitKey(1) & 0xFF == ord('q'):
+        break
+
+cv2.destroyAllWindows()
+picam2.stop()
+```
+
+**Ball Detection Code**
+
+After the camera worked, I wrote this code to detect the red ball. It converts each frame to HSV, filters for red, finds the largest red object, draws a box around it, and prints whether the ball is on the left, center, or right. I tuned the color values so it would pick out the red ball and not skin tones.
+
+```python
+from picamera2 import Picamera2
+import cv2
+import numpy as np
+
+picam2 = Picamera2()
+config = picam2.create_preview_configuration(main={"format": "RGB888", "size": (320, 240)})
+picam2.configure(config)
+picam2.start()
+
+print("Detecting red ball - press q to quit")
+while True:
+    frame = picam2.capture_array()
+    hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
+
+    lower1 = np.array([0, 150, 80])
+    upper1 = np.array([10, 255, 255])
+    lower2 = np.array([170, 150, 80])
+    upper2 = np.array([180, 255, 255])
+    mask = cv2.inRange(hsv, lower1, upper1) + cv2.inRange(hsv, lower2, upper2)
+
+    contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    if contours:
+        largest = max(contours, key=cv2.contourArea)
+        area = cv2.contourArea(largest)
+        if area > 300:
+            x, y, w, h = cv2.boundingRect(largest)
+            cx = x + w // 2
+            cv2.rectangle(frame, (x, y), (x+w, y+h), (0, 255, 0), 2)
+            if cx < 107:
+                pos = "LEFT"
+            elif cx > 213:
+                pos = "RIGHT"
+            else:
+                pos = "CENTER"
+            cv2.putText(frame, pos, (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
+            print(f"Ball: {pos}  area: {int(area)}")
+
+    cv2.imshow("Ball Tracking", frame)
+    if cv2.waitKey(1) & 0xFF == ord('q'):
+        break
+
+cv2.destroyAllWindows()
+picam2.stop()
+```
+
 **Final Code — Full Ball Tracking Robot**
 
 This is the complete program that combines the camera, the motors, and the ultrasonic sensors. The camera detects the red ball and decides if it is on the left, center, or right. Based on that, the robot turns or drives forward to follow the ball, and the center ultrasonic sensor stops the robot when it gets close so it does not crash into the ball.
