@@ -7,19 +7,153 @@ The Ball Tracking Robot with OpenCV uses a Raspberry Pi 4 computer, a 5MP camera
 | Vaideesh K | Cupertino High School | Electrical Engineering | Incoming Senior |
 
 ![Headshot](Vaideesh%20K.jpg)
+
 ---
 
 # Final Milestone
 
-
 **Summary**
 
-My third milestone is the last portion of my project. In this part I have installed a 5 MP Rasberry Pi Camera and used the OpenCV software as well to run the code, It included three eultrasonic sensors, a L9110 motordriver, and two motordrviers. The robot now is able to detect and follow a colored red ball while using the 3 ultrasonic sensors wwhich detect the distant of the right, center, and left of the object and also to detect and avoid obstacles in real time. 
+My third and final milestone is the last portion of my project. In this part I installed a 5MP Raspberry Pi Camera and used OpenCV to run the vision code. The finished robot combines the three ultrasonic sensors, the L9110 motor driver, and the two motors so that it can detect and follow a red ball while using the three ultrasonic sensors to measure the distance to objects on the left, center, and right, and to detect and avoid obstacles in real time. The camera sees the ball and decides whether it is on the left, center, or right, and the robot turns or drives forward to follow it, stopping when it gets close.
 
 **Challenges**
 
-A major challenge that I faced was getting the camera to be detected by the rasberry pi 4 model B. I ran the code rpicam-hello to turn on that camera and to see if a live camera preview would pop up but that did not not work. The next step I took was powering the pi completley by unplugging the usb-c cable and reseating the camera ribbon to thhe camera modulee as well as the connectors on the rasberry pi 4 model B. I rebooted ran again still did not work so I replaced the camera with 3 different cameras of the same model and with different ribbon cables. I ran the code rpicam-hello -- list-cameras to see if anything would pop up but still no cameras were available. I then ran a update to see if that would fix the issue but nothing. The last resort that I took was creating a camera test. I created a file, then wrote code for the camera, saved and ran it and finally it worked.
+A major challenge I faced was getting the camera to be detected by the Raspberry Pi 4 Model B. I ran `rpicam-hello` to turn on the camera and check for a live preview, but it did not work. My next step was to completely power down the Pi by unplugging the USB-C cable and reseating the camera ribbon cable at both the camera module and the connector on the Raspberry Pi. I rebooted and ran it again, but it still did not work, so I tried three different cameras of the same model with different ribbon cables. I ran `rpicam-hello --list-cameras` to see if anything would show up, but no cameras were available. I then ran an update to see if that would fix the issue, but nothing changed. As a last resort I created a camera test — I made a file, wrote the camera code, saved it, and ran it, and it finally worked. After that I tuned the OpenCV color detection so it would pick out the red ball and not skin tones, and fixed the camera orientation so the image was right-side up.
 
+**Final Code — Full Ball Tracking Robot**
+
+This is the complete program that combines the camera, the motors, and the ultrasonic sensors. The camera detects the red ball and decides if it is on the left, center, or right. Based on that, the robot turns or drives forward to follow the ball, and the center ultrasonic sensor stops the robot when it gets close so it does not crash into the ball.
+
+```python
+from picamera2 import Picamera2
+import cv2
+import numpy as np
+import RPi.GPIO as GPIO
+import time
+
+# ---------- MOTOR SETUP ----------
+GPIO.setmode(GPIO.BCM)
+GPIO.setwarnings(False)
+
+A1A = 6; A1B = 5; B1A = 22; B2A = 23
+for p in [A1A, A1B, B1A, B2A]:
+    GPIO.setup(p, GPIO.OUT)
+
+def forward():
+    GPIO.output(A1A, GPIO.LOW); GPIO.output(A1B, GPIO.HIGH)
+    GPIO.output(B1A, GPIO.LOW); GPIO.output(B2A, GPIO.HIGH)
+def backward():
+    GPIO.output(A1A, GPIO.HIGH); GPIO.output(A1B, GPIO.LOW)
+    GPIO.output(B1A, GPIO.HIGH); GPIO.output(B2A, GPIO.LOW)
+def left():
+    GPIO.output(A1A, GPIO.LOW); GPIO.output(A1B, GPIO.LOW)
+    GPIO.output(B1A, GPIO.LOW); GPIO.output(B2A, GPIO.HIGH)
+def right():
+    GPIO.output(A1A, GPIO.LOW); GPIO.output(A1B, GPIO.HIGH)
+    GPIO.output(B1A, GPIO.LOW); GPIO.output(B2A, GPIO.LOW)
+def stop():
+    for p in [A1A, A1B, B1A, B2A]: GPIO.output(p, GPIO.LOW)
+
+# ---------- SENSOR SETUP ----------
+sensors = [("LEFT", 19, 26), ("CENTER", 16, 20), ("RIGHT", 11, 12)]
+for name, trig, echo in sensors:
+    GPIO.setup(trig, GPIO.OUT)
+    GPIO.setup(echo, GPIO.IN)
+    GPIO.output(trig, False)
+
+def measure(trig, echo):
+    start = time.time()
+    stop_t = time.time()
+    GPIO.output(trig, True)
+    time.sleep(0.00001)
+    GPIO.output(trig, False)
+    t = time.time() + 0.05
+    while GPIO.input(echo) == 0 and time.time() < t:
+        start = time.time()
+    t = time.time() + 0.05
+    while GPIO.input(echo) == 1 and time.time() < t:
+        stop_t = time.time()
+    return round((stop_t - start) * 34300 / 2, 1)
+
+# ---------- CAMERA SETUP ----------
+picam2 = Picamera2()
+config = picam2.create_preview_configuration(main={"format": "RGB888", "size": (320, 240)})
+picam2.configure(config)
+picam2.start()
+time.sleep(2)
+
+print("Ball tracking robot running - press q to quit")
+
+try:
+    while True:
+        frame = picam2.capture_array()
+        frame = cv2.flip(frame, -1)
+        hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
+
+        lower1 = np.array([0, 150, 80])
+        upper1 = np.array([10, 255, 255])
+        lower2 = np.array([170, 150, 80])
+        upper2 = np.array([180, 255, 255])
+        mask = cv2.inRange(hsv, lower1, upper1) + cv2.inRange(hsv, lower2, upper2)
+
+        center_dist = measure(16, 20)
+
+        ball_found = False
+        pos = "NONE"
+
+        contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        if contours:
+            largest = max(contours, key=cv2.contourArea)
+            area = cv2.contourArea(largest)
+            if area > 300:
+                ball_found = True
+                x, y, w, h = cv2.boundingRect(largest)
+                cx = x + w // 2
+                cv2.rectangle(frame, (x, y), (x+w, y+h), (0, 255, 0), 2)
+                if cx < 107:
+                    pos = "LEFT"
+                elif cx > 213:
+                    pos = "RIGHT"
+                else:
+                    pos = "CENTER"
+
+        if ball_found:
+            if center_dist < 15 and center_dist > 0:
+                stop()
+                action = "ARRIVED - stopped"
+            elif pos == "LEFT":
+                left()
+                action = "turning left"
+            elif pos == "RIGHT":
+                right()
+                action = "turning right"
+            else:
+                forward()
+                action = "driving forward"
+        else:
+            stop()
+            action = "searching (no ball)"
+
+        cv2.putText(frame, f"{pos} | {action}", (10, 30),
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 0), 2)
+        cv2.putText(frame, f"dist: {center_dist} cm", (10, 60),
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 0), 2)
+        cv2.imshow("Ball Tracking Robot", frame)
+
+        print(f"Ball: {pos} | {action} | center dist: {center_dist} cm")
+
+        if cv2.waitKey(1) & 0xFF == ord('q'):
+            break
+
+except KeyboardInterrupt:
+    pass
+
+stop()
+cv2.destroyAllWindows()
+picam2.stop()
+GPIO.cleanup()
+print("Stopped and cleaned up")
+```
 
 ---
 
@@ -41,56 +175,7 @@ Another issue was unreliable connections, which was the hardest part because eve
 
 After all of these problems, there was one simple fix that would have saved a lot of time: switching to the L9110 motor driver. The L9110 uses a single power input instead of separate logic and motor inputs, which makes everything much simpler — and once I switched, the motors finally spun.
 
-**What's Next**
-
-Connect the camera to the Raspberry Pi and add code so it can track the ball. I will write the OpenCV code so the robot can detect the red ball, then combine the camera, sensors, and motors so it can track the ball and avoid obstacles in its path.
-
----
-
-# First Milestone
-
-<iframe width="560" height="315" src="https://www.youtube.com/embed/zEN702sMDmo" title="Vaideesh K. Milestone 1" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen></iframe>
-
-**Summary**
-
-The goal of the first milestone was to build the foundation of the ball-tracking robot: assembling the robot chassis, getting the Raspberry Pi running with the necessary software installed, and completing all of the electronic connections (wiring the two motors to the L9110 motor driver, the three ultrasonic sensors, and the power). The Pi drives the motors, and the camera is added so the robot can track the red ball and follow it.
-
-**Components Used**
-
-- **Raspberry Pi 4 Model B** — the brain behind everything. It runs the code and controls the robot, from the sensors to the motors.
-- **PiCamera (OV5647)** — the camera that detects the ball (used in later milestones).
-- **L9110 Motor Driver** — an H-bridge board that lets the Pi control the motors. I switched to this after using the L298N.
-- **2× Yellow TT Motors** — spin the wheels to move the robot.
-- **2× Wheels + Front Caster** — the wheels drive the robot, and the caster helps balance it and mount the front sensors.
-- **3× HC-SR04 Ultrasonic Sensors** — measure distance for obstacle detection.
-- **Resistors (1kΩ and 2kΩ)** — build the voltage dividers that protect the Pi's 3.3V pins from the sensors' 5V signals.
-- **Breadboard** — the main hub for connecting the voltage dividers, power, and sensor wiring.
-- **Jumper Wires** — connect all the components together.
-- **4×AA Battery Pack (6V)** — powers the motors.
-- **USB-C Powerbank** — powers the Pi.
-- **Clear Acrylic 2WD Chassis** — the frame that holds everything together.
-
-**Challenges**
-
-The challenges I faced were finding diagrams to help me make the electrical connections and making all of the connections myself. There were nearly 40 connections to make, and the wires kept getting tangled, the resistors kept getting unplugged, and everything was disorganized. I had to reseat and redo cables multiple times, but in the end I got them organized. I also ran into a problem where some cables were dead, so I used a multimeter to find and replace them.
-
-**What's Next**
-
-Make the motors work when connected to the motor driver, and make the ultrasonic sensors detect the distance of an object placed in front of them.
-
----
-
-# Schematics
-
-**Ball Tracking Robot Diagram**
-
-![Ball Tracking Robot With OpenCV Schematics](Ball%20Tracking%20Robot%20With%20Open%20CV%20Schematics.jpg)
-
----
-
-# Code
-
-## Basic Code for the Motor Driver
+**Motor Driver Code**
 
 This code uses basic WASD controls to move the robot, which is useful for testing the most basic mechanics of the motors. It also confirms that the wiring to the motor driver and the Raspberry Pi is correct. The HIGH/LOW combinations create different patterns, which cause the changes in direction.
 
@@ -132,7 +217,7 @@ except KeyboardInterrupt:
 GPIO.cleanup()
 ```
 
-## Basic Code for the Ultrasonic Sensors
+**Ultrasonic Sensor Code**
 
 This code tests whether the ultrasonic sensors work. It measures the distance to an object by firing a pulse from each sensor, timing how long the echo takes to return, and using the speed of sound to calculate the distance. It reads all three sensors — left, center, and right — and prints their distances.
 
@@ -181,6 +266,51 @@ except KeyboardInterrupt:
     GPIO.cleanup()
 ```
 
+**What's Next**
+
+Connect the camera to the Raspberry Pi and add code so it can track the ball. I will write the OpenCV code so the robot can detect the red ball, then combine the camera, sensors, and motors so it can track the ball and avoid obstacles in its path.
+
+---
+
+# First Milestone
+
+<iframe width="560" height="315" src="https://www.youtube.com/embed/zEN702sMDmo" title="Vaideesh K. Milestone 1" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen></iframe>
+
+**Summary**
+
+The goal of the first milestone was to build the foundation of the ball-tracking robot: assembling the robot chassis, getting the Raspberry Pi running with the necessary software installed, and completing all of the electronic connections (wiring the two motors to the L9110 motor driver, the three ultrasonic sensors, and the power). The Pi drives the motors, and the camera is added so the robot can track the red ball and follow it.
+
+**Components Used**
+
+- **Raspberry Pi 4 Model B** — the brain behind everything. It runs the code and controls the robot, from the sensors to the motors.
+- **PiCamera (OV5647)** — the camera that detects the ball (used in later milestones).
+- **L9110 Motor Driver** — an H-bridge board that lets the Pi control the motors. I switched to this after using the L298N.
+- **2× Yellow TT Motors** — spin the wheels to move the robot.
+- **2× Wheels + Front Caster** — the wheels drive the robot, and the caster helps balance it and mount the front sensors.
+- **3× HC-SR04 Ultrasonic Sensors** — measure distance for obstacle detection.
+- **Resistors (1kΩ and 2kΩ)** — build the voltage dividers that protect the Pi's 3.3V pins from the sensors' 5V signals.
+- **Breadboard** — the main hub for connecting the voltage dividers, power, and sensor wiring.
+- **Jumper Wires** — connect all the components together.
+- **4×AA Battery Pack (6V)** — powers the motors.
+- **USB-C Powerbank** — powers the Pi.
+- **Clear Acrylic 2WD Chassis** — the frame that holds everything together.
+
+**Challenges**
+
+The challenges I faced were finding diagrams to help me make the electrical connections and making all of the connections myself. There were nearly 40 connections to make, and the wires kept getting tangled, the resistors kept getting unplugged, and everything was disorganized. I had to reseat and redo cables multiple times, but in the end I got them organized. I also ran into a problem where some cables were dead, so I used a multimeter to find and replace them.
+
+**What's Next**
+
+Make the motors work when connected to the motor driver, and make the ultrasonic sensors detect the distance of an object placed in front of them.
+
+---
+
+# Schematics
+
+**Ball Tracking Robot Diagram**
+
+![Ball Tracking Robot With OpenCV Schematics](Ball%20Tracking%20Robot%20With%20Open%20CV%20Schematics.jpg)
+
 ---
 
 # Bill of Materials
@@ -228,11 +358,3 @@ My starter project was the Retro Arcade Console. It works by receiving input fro
 There were several challenges, some harder than others. My first challenge was soldering the board — every time I soldered, the solder kept bridging to other holes, which could cause a short circuit and damage the board. Another problem was getting the red and black battery wires to sit neatly in two tiny holes and holding them in place so I could solder them properly. I had to unsolder many parts multiple times because the console simply would not turn on. But after all of these hardships, I managed to fix every one of them and get the console working properly.
 
 ---
-
-# Other Resources / Examples
-
-One of the best parts about GitHub is that you can view how other people set up their own work.
-
-- [Claude Ai help Project](https://claude.ai/share/d7c5e0e6-0105-45f7-9baa-1b5a52f87b24)
-- [Portfolio Help — Derin's BSE Portfolio](https://deringur.github.io/BSE_Derin_Portfolio/)
-- [Raspberry Pi 4 Model B Pin Layout](https://www.raspberrypi.com/documentation/computers/raspberry-pi.html#gpio)
