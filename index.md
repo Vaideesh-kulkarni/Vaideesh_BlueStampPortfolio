@@ -14,11 +14,13 @@ The Ball Tracking Robot with OpenCV uses a Raspberry Pi 4 computer, a 5MP camera
 
 **Summary**
 
-My third and final milestone is the last portion of my project. In this part I installed a 5MP Raspberry Pi Camera and used OpenCV to run the vision code. The finished robot combines the three ultrasonic sensors, the L9110 motor driver, and the two motors so that it can detect and follow a red ball while using the three ultrasonic sensors to measure the distance to objects on the left, center, and right, and to detect and avoid obstacles in real time. The camera sees the ball and decides whether it is on the left, center, or right, and the robot turns or drives forward to follow it, stopping when it gets close.
+My third and final milestone is the last portion of my project. In this part I installed a 5MP Raspberry Pi Camera and used OpenCV to run the vision code. The finished robot combines the three ultrasonic sensors, the L9110 motor driver, and the two motors so that it can detect and follow a red ball while using the three ultrasonic sensors to measure the distance to objects on the left, center, and right, and to detect and avoid obstacles in real time. The camera sees the ball and decides whether it is on the left, center, or right, and the robot turns or drives forward to follow it, stopping when it gets close. To make sure the robot only follows the ball and not any other red object, I added a circularity check that measures how round each red object is, so only round objects like the ball are tracked.
 
 **Challenges**
 
-A major challenge I faced was getting the camera to be detected by the Raspberry Pi 4 Model B. I ran `rpicam-hello` to turn on the camera and check for a live preview, but it did not work. My next step was to completely power down the Pi by unplugging the USB-C cable and reseating the camera ribbon cable at both the camera module and the connector on the Raspberry Pi. I rebooted and ran it again, but it still did not work, so I tried three different cameras of the same model with different ribbon cables. I ran `rpicam-hello --list-cameras` to see if anything would show up, but no cameras were available. I then ran an update to see if that would fix the issue, but nothing changed. As a last resort I created a camera test — I made a file, wrote the camera code, saved it, and ran it, and it finally worked. After that I tuned the OpenCV color detection so it would pick out the red ball and not skin tones, and fixed the camera orientation so the image was right-side up.
+A major challenge I faced was getting the camera to be detected by the Raspberry Pi 4 Model B. I ran `rpicam-hello` to turn on the camera and check for a live preview, but it did not work. My next step was to completely power down the Pi by unplugging the USB-C cable and reseating the camera ribbon cable at both the camera module and the connector on the Raspberry Pi. I rebooted and ran it again, but it still did not work, so I tried three different cameras of the same model with different ribbon cables. I ran `rpicam-hello --list-cameras` to see if anything would show up, but no cameras were available. I then ran an update to see if that would fix the issue, but nothing changed. As a last resort I created a camera test — I made a file, wrote the camera code, saved it, and ran it, and it finally worked.
+
+Another challenge was making the robot track only the red ball and not every red object in the room. At first the code just picked the largest red blob, so it would follow red shirts or anything else red. I fixed this by adding a circularity calculation that compares each object's area to its perimeter to measure how round it is. I also had to clean up the mask with morphological operations, because glare on the ball punched holes in the detected shape and ruined the roundness math. I also had to fix the camera orientation, since the image was coming in upside down.
 
 **Camera Test Code**
 
@@ -46,7 +48,7 @@ picam2.stop()
 
 **Ball Detection Code**
 
-After the camera worked, I wrote this code to detect the red ball. It converts each frame to HSV, filters for red, finds the largest red object, draws a box around it, and prints whether the ball is on the left, center, or right. I tuned the color values so it would pick out the red ball and not skin tones.
+After the camera worked, I wrote this code to detect the red ball. It converts each frame to HSV, filters for red, cleans up the mask so glare doesn't break the shape, and then calculates the circularity of each red object. Only round objects count as the ball, so other red objects get ignored. The code draws a green box when it finds the ball and prints whether the ball is on the left, center, or right.
 
 ```python
 from picamera2 import Picamera2
@@ -58,10 +60,19 @@ config = picam2.create_preview_configuration(main={"format": "RGB888", "size": (
 picam2.configure(config)
 picam2.start()
 
+kernel = np.ones((5, 5), np.uint8)
+
+# Roundness threshold - raise it if it tracks non-ball red objects,
+# lower it if it misses the ball
+MIN_CIRCULARITY = 0.4
+
 print("Detecting red ball - press q to quit")
 while True:
     frame = picam2.capture_array()
-    hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
+    frame = cv2.flip(frame, -1)
+
+    blurred = cv2.GaussianBlur(frame, (5, 5), 0)
+    hsv = cv2.cvtColor(blurred, cv2.COLOR_BGR2HSV)
 
     lower1 = np.array([0, 150, 80])
     upper1 = np.array([10, 255, 255])
@@ -69,24 +80,65 @@ while True:
     upper2 = np.array([180, 255, 255])
     mask = cv2.inRange(hsv, lower1, upper1) + cv2.inRange(hsv, lower2, upper2)
 
+    # Clean the mask - glare punches holes in the ball and wrecks the
+    # perimeter math, so closing fills them back in
+    mask = cv2.morphologyEx(mask, cv2.MORPH_OPEN, kernel)
+    mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, kernel, iterations=3)
+    mask = cv2.dilate(mask, kernel, iterations=1)
+
     contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-    if contours:
-        largest = max(contours, key=cv2.contourArea)
-        area = cv2.contourArea(largest)
-        if area > 300:
-            x, y, w, h = cv2.boundingRect(largest)
-            cx = x + w // 2
-            cv2.rectangle(frame, (x, y), (x+w, y+h), (0, 255, 0), 2)
-            if cx < 107:
-                pos = "LEFT"
-            elif cx > 213:
-                pos = "RIGHT"
-            else:
-                pos = "CENTER"
-            cv2.putText(frame, pos, (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
-            print(f"Ball: {pos}  area: {int(area)}")
+
+    best = None
+    best_area = 0
+    fallback = None
+    fallback_area = 0
+
+    for c in contours:
+        area = cv2.contourArea(c)
+        if area < 300:
+            continue
+
+        perimeter = cv2.arcLength(c, True)
+        if perimeter == 0:
+            continue
+        circularity = 4 * np.pi * area / (perimeter * perimeter)
+
+        # Track the biggest round one
+        if circularity >= MIN_CIRCULARITY and area > best_area:
+            best = (c, circularity)
+            best_area = area
+
+        # Also track the biggest blob overall, in case nothing is round
+        if area > fallback_area:
+            fallback = (c, circularity)
+            fallback_area = area
+
+    chosen = best if best is not None else fallback
+
+    if chosen is not None:
+        c, circ = chosen
+        area = cv2.contourArea(c)
+        x, y, w, h = cv2.boundingRect(c)
+        cx = x + w // 2
+
+        # Green box = passed roundness (it's the ball)
+        # Red box = failed roundness (probably not the ball)
+        color = (0, 255, 0) if circ >= MIN_CIRCULARITY else (0, 0, 255)
+        cv2.rectangle(frame, (x, y), (x+w, y+h), color, 2)
+
+        if cx < 107:
+            pos = "LEFT"
+        elif cx > 213:
+            pos = "RIGHT"
+        else:
+            pos = "CENTER"
+
+        label = f"{pos}  circ={circ:.2f}"
+        cv2.putText(frame, label, (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.7, color, 2)
+        print(f"Ball: {pos}  area: {int(area)}  circularity: {circ:.2f}")
 
     cv2.imshow("Ball Tracking", frame)
+
     if cv2.waitKey(1) & 0xFF == ord('q'):
         break
 
@@ -96,7 +148,7 @@ picam2.stop()
 
 **Final Code — Full Ball Tracking Robot**
 
-This is the complete program that combines the camera, the motors, and the ultrasonic sensors. The camera detects the red ball and decides if it is on the left, center, or right. Based on that, the robot turns or drives forward to follow the ball, and the center ultrasonic sensor stops the robot when it gets close so it does not crash into the ball.
+This is the complete program that combines the camera, the motors, and the ultrasonic sensors. The camera detects the red ball, checks that it is round so other red objects are ignored, and decides if the ball is on the left, center, or right. Based on that, the robot turns or drives forward to follow the ball, and the center ultrasonic sensor stops the robot when it gets close so it does not crash into the ball.
 
 ```python
 from picamera2 import Picamera2
@@ -156,13 +208,21 @@ picam2.configure(config)
 picam2.start()
 time.sleep(2)
 
+kernel = np.ones((5, 5), np.uint8)
+
+# Roundness threshold - raise it if it tracks non-ball red objects,
+# lower it if it misses the ball
+MIN_CIRCULARITY = 0.4
+
 print("Ball tracking robot running - press q to quit")
 
 try:
     while True:
         frame = picam2.capture_array()
         frame = cv2.flip(frame, -1)
-        hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
+
+        blurred = cv2.GaussianBlur(frame, (5, 5), 0)
+        hsv = cv2.cvtColor(blurred, cv2.COLOR_BGR2HSV)
 
         lower1 = np.array([0, 150, 80])
         upper1 = np.array([10, 255, 255])
@@ -170,29 +230,68 @@ try:
         upper2 = np.array([180, 255, 255])
         mask = cv2.inRange(hsv, lower1, upper1) + cv2.inRange(hsv, lower2, upper2)
 
+        # Clean the mask - fills glare holes so the roundness math works
+        mask = cv2.morphologyEx(mask, cv2.MORPH_OPEN, kernel)
+        mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, kernel, iterations=3)
+        mask = cv2.dilate(mask, kernel, iterations=1)
+
         center_dist = measure(16, 20)
+
+        contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+
+        # Find the biggest ROUND red blob (the ball)
+        best = None
+        best_area = 0
+        fallback = None
+        fallback_area = 0
+
+        for c in contours:
+            area = cv2.contourArea(c)
+            if area < 300:
+                continue
+            perimeter = cv2.arcLength(c, True)
+            if perimeter == 0:
+                continue
+            circularity = 4 * np.pi * area / (perimeter * perimeter)
+
+            if circularity >= MIN_CIRCULARITY and area > best_area:
+                best = (c, circularity)
+                best_area = area
+
+            if area > fallback_area:
+                fallback = (c, circularity)
+                fallback_area = area
+
+        chosen = best if best is not None else fallback
 
         ball_found = False
         pos = "NONE"
+        circ = 0.0
 
-        contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-        if contours:
-            largest = max(contours, key=cv2.contourArea)
-            area = cv2.contourArea(largest)
-            if area > 300:
+        if chosen is not None:
+            c, circ = chosen
+            # Only treat it as the ball if it passed the roundness test
+            if circ >= MIN_CIRCULARITY:
                 ball_found = True
-                x, y, w, h = cv2.boundingRect(largest)
-                cx = x + w // 2
-                cv2.rectangle(frame, (x, y), (x+w, y+h), (0, 255, 0), 2)
-                if cx < 107:
-                    pos = "LEFT"
-                elif cx > 213:
-                    pos = "RIGHT"
-                else:
-                    pos = "CENTER"
 
+            area = cv2.contourArea(c)
+            x, y, w, h = cv2.boundingRect(c)
+            cx = x + w // 2
+
+            # Green box = it's the ball. Red box = red thing, not round enough.
+            color = (0, 255, 0) if ball_found else (0, 0, 255)
+            cv2.rectangle(frame, (x, y), (x+w, y+h), color, 2)
+
+            if cx < 107:
+                pos = "LEFT"
+            elif cx > 213:
+                pos = "RIGHT"
+            else:
+                pos = "CENTER"
+
+        # ---------- DECISION LOGIC ----------
         if ball_found:
-            if center_dist < 15 and center_dist > 0:
+            if 0 < center_dist < 15:
                 stop()
                 action = "ARRIVED - stopped"
             elif pos == "LEFT":
@@ -210,11 +309,11 @@ try:
 
         cv2.putText(frame, f"{pos} | {action}", (10, 30),
                     cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 0), 2)
-        cv2.putText(frame, f"dist: {center_dist} cm", (10, 60),
+        cv2.putText(frame, f"dist: {center_dist} cm  circ: {circ:.2f}", (10, 60),
                     cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 0), 2)
         cv2.imshow("Ball Tracking Robot", frame)
 
-        print(f"Ball: {pos} | {action} | center dist: {center_dist} cm")
+        print(f"Ball: {pos} | {action} | dist: {center_dist} cm | circ: {circ:.2f}")
 
         if cv2.waitKey(1) & 0xFF == ord('q'):
             break
@@ -430,5 +529,3 @@ My starter project was the Retro Arcade Console. It works by receiving input fro
 **Challenges Faced**
 
 There were several challenges, some harder than others. My first challenge was soldering the board — every time I soldered, the solder kept bridging to other holes, which could cause a short circuit and damage the board. Another problem was getting the red and black battery wires to sit neatly in two tiny holes and holding them in place so I could solder them properly. I had to unsolder many parts multiple times because the console simply would not turn on. But after all of these hardships, I managed to fix every one of them and get the console working properly.
-
----
