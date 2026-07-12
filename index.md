@@ -482,7 +482,11 @@ Make the motors work when connected to the motor driver, and make the ultrasonic
 
 **Ball Tracking Robot Diagram**
 
-![Ball Tracking Robot With OpenCV Schematics](Ball%20Tracking%20Robot%20With%20Open%20CV%20Schematics.jpg)
+<img src="Ball%20Tracking%20Robot%20With%20Open%20CV%20Schematics.jpg" width="600">
+
+**Robot Build Photos**
+
+<img src="IMG_6778.jpeg" width="300"> <img src="IMG_6781.jpeg" width="300"> <img src="IMG_6782.jpeg" width="300">
 
 ---
 
