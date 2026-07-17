@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+<!-- <!DOCTYPE html> -->
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -76,7 +76,7 @@ td a:hover{color:var(--box)}
 .imgrow{display:flex;flex-wrap:wrap;gap:12px;margin:20px 0}
 .imgrow img{border-radius:8px;max-width:100%;border:1px solid var(--line)}
 .single-img{border-radius:10px;max-width:100%;border:1px solid var(--line);margin:20px 0}
-.headshot{width:150px;height:150px;object-fit:cover;border-radius:10px;border:2px solid var(--box);margin:20px 0}
+.headshot{width:230px;height:230px;object-fit:cover;border-radius:12px;border:2px solid var(--box);margin:24px 0}
 
 .divider{height:1px;background:var(--line);margin:50px 0;border:0}
 .footer{border-top:1px solid var(--line);margin-top:60px;padding-top:24px;font-family:'JetBrains Mono',monospace;font-size:13px;color:var(--muted)}
