@@ -4,110 +4,324 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Ball Tracking Robot with OpenCV | Vaideesh K</title>
+<meta name="description" content="A Raspberry Pi robot that finds a red ball with OpenCV, pans a servo camera to keep it centered, and drives to it while avoiding obstacles. Built by Vaideesh K.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,600;12..96,700;12..96,800&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
 <style>
 :root{
-  --ink:#0F1416; --paper:#FBFAF7; --panel:#0E1417; --panel-2:#141D22;
-  --ball:#E63B2E; --box:#2FBF71; --muted:#6B7580; --line:#E4E0D8;
+  /* optical instrument palette - deep housing, sensor red, phosphor green */
+  --void:#070B0D;
+  --panel:#0C1317;
+  --panel-2:#121C21;
+  --edge:#1C2A31;
+  --paper:#F7F5F0;
+  --ink:#0E1418;
+  --body:#28333A;
+  --ball:#FF3B2F;      /* the tracked object */
+  --box:#29E07E;       /* the detection overlay */
+  --amber:#F0B429;     /* warnings / telemetry */
+  --dim:#5F6E76;
+  --line:#E2DED4;
+
+  --display:'Bricolage Grotesque',system-ui,sans-serif;
+  --text:'Inter',system-ui,-apple-system,sans-serif;
+  --mono:'JetBrains Mono',ui-monospace,monospace;
 }
 *{box-sizing:border-box;margin:0;padding:0}
-html{scroll-behavior:smooth}
-body{background:var(--paper);color:var(--ink);font-family:'Inter',system-ui,-apple-system,sans-serif;font-size:17px;line-height:1.7;-webkit-font-smoothing:antialiased}
+html{scroll-behavior:smooth;scroll-padding-top:70px}
+body{background:var(--paper);color:var(--body);font-family:var(--text);
+  font-size:17px;line-height:1.72;-webkit-font-smoothing:antialiased;
+  text-rendering:optimizeLegibility}
+::selection{background:var(--box);color:var(--void)}
 
-/* HEADER */
-.page-header{position:relative;background:var(--panel);background-image:linear-gradient(rgba(47,191,113,.06) 1px,transparent 1px),linear-gradient(90deg,rgba(47,191,113,.06) 1px,transparent 1px);background-size:34px 34px;color:#EDEFEC;padding:70px 24px 78px;text-align:center;overflow:hidden;border-bottom:2px solid var(--box)}
-.hud-readout{font-family:'JetBrains Mono',monospace;font-size:12px;letter-spacing:.22em;text-transform:uppercase;color:var(--box);display:flex;gap:12px;align-items:center;justify-content:center;margin-bottom:26px}
-.rec-dot{width:9px;height:9px;border-radius:50%;background:var(--ball);box-shadow:0 0 0 0 rgba(230,59,46,.6);animation:rec 1.8s ease-out infinite}
-@keyframes rec{0%{box-shadow:0 0 0 0 rgba(230,59,46,.55)}70%{box-shadow:0 0 0 10px rgba(230,59,46,0)}100%{box-shadow:0 0 0 0 rgba(230,59,46,0)}}
-.track-frame{position:relative;display:inline-block;padding:26px 42px;margin:0 auto}
-.track-frame::before,.track-frame::after,.track-frame>.br-tl,.track-frame>.br-br{content:"";position:absolute;width:26px;height:26px;border:2px solid var(--box)}
-.track-frame::before{top:0;left:0;border-right:0;border-bottom:0}
-.track-frame::after{top:0;right:0;border-left:0;border-bottom:0}
-.track-frame>.br-tl{bottom:0;left:0;border-right:0;border-top:0}
-.track-frame>.br-br{bottom:0;right:0;border-left:0;border-top:0}
-.track-tag{position:absolute;top:-11px;left:50%;transform:translateX(-50%);background:var(--box);color:var(--panel);font-family:'JetBrains Mono',monospace;font-size:10px;font-weight:700;letter-spacing:.12em;padding:2px 8px;border-radius:2px;white-space:nowrap}
-.project-name{font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:clamp(30px,5vw,52px);line-height:1.06;letter-spacing:-.02em}
-.project-name .accent{color:var(--ball)}
-.project-tagline{font-family:'JetBrains Mono',monospace;font-size:14px;color:#9AA6A0;margin-top:26px}
-.btns{margin-top:32px;display:flex;gap:10px;justify-content:center;flex-wrap:wrap;max-width:720px;margin-left:auto;margin-right:auto}
-.btn{font-family:'JetBrains Mono',monospace;font-size:12.5px;font-weight:500;letter-spacing:.04em;text-decoration:none;color:#EDEFEC;border:1.5px solid rgba(255,255,255,.22);padding:10px 16px;border-radius:4px;transition:all .18s ease;white-space:nowrap}
-.btn:hover{border-color:var(--box);color:var(--box);transform:translateY(-1px)}
-.btn.primary{border-color:var(--box);color:var(--box)}
-.btn.primary:hover{background:var(--box);color:var(--panel)}
+/* ================= SCROLL PROGRESS ================= */
+.progress{position:fixed;top:0;left:0;height:2px;width:0;background:var(--box);
+  z-index:200;transition:width .1s linear;box-shadow:0 0 12px rgba(41,224,126,.7)}
 
-/* CONTENT */
-.main{max-width:820px;margin:0 auto;padding:56px 24px 90px}
-.intro{font-size:19px;color:#333B40;border-left:3px solid var(--ball);padding-left:20px;margin-bottom:8px}
-h1.section{font-family:'Space Grotesk',sans-serif;font-size:clamp(26px,3.4vw,34px);font-weight:700;letter-spacing:-.02em;margin:70px 0 20px;padding-bottom:14px;border-bottom:1px solid var(--line)}
-h1.section .idx{font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:700;color:var(--box);letter-spacing:.14em;display:block;margin-bottom:8px}
-.label{font-family:'Space Grotesk',sans-serif;font-weight:600;font-size:20px;margin:30px 0 8px;display:flex;align-items:center;gap:10px}
-.label::before{content:"";width:8px;height:8px;background:var(--box);border-radius:1px;transform:rotate(45deg);flex:none}
-p{margin:14px 0;color:#2A3237}
-ul{margin:14px 0 14px 4px;list-style:none}
-ul li{position:relative;padding-left:22px;margin:7px 0;color:#2A3237}
-ul li::before{content:"▸";position:absolute;left:0;color:var(--box);font-size:14px;top:1px}
-code.inl{font-family:'JetBrains Mono',monospace;font-size:.86em;background:#EDEAE2;color:#B4402F;padding:1px 6px;border-radius:4px}
-a.link{color:#1f9e5a;text-decoration:none;border-bottom:1px solid rgba(47,191,113,.4)}
-a.link:hover{color:var(--box);border-bottom-color:var(--box)}
+/* ================= STICKY NAV ================= */
+.stick{position:fixed;top:0;left:0;right:0;z-index:150;
+  background:rgba(7,11,13,.92);backdrop-filter:blur(16px) saturate(140%);
+  -webkit-backdrop-filter:blur(16px) saturate(140%);
+  border-bottom:1px solid rgba(41,224,126,.16);
+  transform:translateY(-101%);transition:transform .34s cubic-bezier(.4,0,.2,1)}
+.stick.on{transform:translateY(0)}
+.stick-in{max-width:1140px;margin:0 auto;padding:0 22px;display:flex;
+  align-items:center;gap:18px;height:56px}
+.stick-mark{font-family:var(--mono);font-size:11px;letter-spacing:.16em;
+  color:var(--box);display:flex;align-items:center;gap:8px;flex:none}
+.stick-links{display:flex;gap:2px;overflow-x:auto;scrollbar-width:none;margin-left:auto}
+.stick-links::-webkit-scrollbar{display:none}
+.stick-links a{font-family:var(--mono);font-size:11.5px;color:#8A9A93;
+  text-decoration:none;padding:7px 11px;border-radius:5px;white-space:nowrap;
+  transition:color .16s ease,background .16s ease}
+.stick-links a:hover{color:#EDEFEC;background:rgba(255,255,255,.06)}
+.stick-links a.here{color:var(--box);background:rgba(41,224,126,.11)}
+@media (max-width:780px){.stick-mark{display:none}.stick-links{margin-left:0}}
 
-/* CODE */
-.code-wrap{background:var(--panel);border-radius:10px;margin:22px 0;overflow:hidden;box-shadow:0 14px 34px -18px rgba(15,20,22,.55);border:1px solid #1E2A30}
-.code-bar{display:flex;align-items:center;gap:8px;padding:11px 16px;background:#0A0F11;border-bottom:1px solid #1E2A30}
-.code-bar .dot{width:11px;height:11px;border-radius:50%}
-.d1{background:#E63B2E}.d2{background:#E8B23A}.d3{background:#2FBF71}
-.code-bar .fname{font-family:'JetBrains Mono',monospace;font-size:12px;color:#7C8A90;margin-left:8px}
-pre{margin:0;padding:20px 22px;overflow-x:auto}
-pre code{font-family:'JetBrains Mono',monospace;font-size:13px;line-height:1.6;color:#D7DEE1;white-space:pre}
+/* ================= HERO ================= */
+.hero{position:relative;background:var(--void);color:#E9EEEC;
+  padding:0 22px 0;overflow:hidden;border-bottom:1px solid rgba(41,224,126,.25)}
+/* faint optical grid, like a sensor readout */
+.hero::before{content:"";position:absolute;inset:0;pointer-events:none;
+  background-image:linear-gradient(rgba(41,224,126,.045) 1px,transparent 1px),
+                   linear-gradient(90deg,rgba(41,224,126,.045) 1px,transparent 1px);
+  background-size:40px 40px;
+  mask-image:radial-gradient(ellipse 90% 70% at 50% 45%,#000 20%,transparent 78%);
+  -webkit-mask-image:radial-gradient(ellipse 90% 70% at 50% 45%,#000 20%,transparent 78%)}
+.hero-in{position:relative;max-width:1140px;margin:0 auto;
+  padding:78px 0 74px;display:grid;grid-template-columns:1fr 1fr;
+  gap:60px;align-items:center}
+@media (max-width:940px){
+  .hero-in{grid-template-columns:1fr;gap:40px;padding:60px 0 62px}
+}
 
-/* TABLE */
-table{width:100%;border-collapse:collapse;margin:24px 0;font-size:15px}
-th{background:var(--panel);color:#EDEFEC;font-family:'JetBrains Mono',monospace;font-size:12px;letter-spacing:.06em;text-transform:uppercase;text-align:left;padding:12px 14px}
-td{padding:12px 14px;border-bottom:1px solid var(--line);vertical-align:top}
+.eyebrow{font-family:var(--mono);font-size:11px;letter-spacing:.24em;
+  text-transform:uppercase;color:var(--box);display:flex;align-items:center;
+  gap:10px;margin-bottom:26px}
+.rec-dot{width:8px;height:8px;border-radius:50%;background:var(--ball);
+  box-shadow:0 0 0 0 rgba(255,59,47,.65);animation:rec 2s ease-out infinite;flex:none}
+@keyframes rec{
+  0%{box-shadow:0 0 0 0 rgba(255,59,47,.6)}
+  70%{box-shadow:0 0 0 11px rgba(255,59,47,0)}
+  100%{box-shadow:0 0 0 0 rgba(255,59,47,0)}
+}
+
+h1.title{font-family:var(--display);font-weight:800;
+  font-size:clamp(38px,5.6vw,72px);line-height:.98;letter-spacing:-.035em;
+  color:#F2F6F4}
+h1.title .cv{color:var(--ball);position:relative;display:inline-block}
+/* the detection bracket sits on the words "OpenCV" - the page tracking itself */
+h1.title .cv::before,h1.title .cv::after{content:"";position:absolute;
+  width:14px;height:14px;border:2px solid var(--box);opacity:.9}
+h1.title .cv::before{top:-9px;left:-11px;border-right:0;border-bottom:0}
+h1.title .cv::after{bottom:-9px;right:-11px;border-left:0;border-top:0}
+
+.lede{font-size:17.5px;line-height:1.62;color:#9DAAA4;max-width:44ch;margin-top:26px}
+.byline{font-family:var(--mono);font-size:12.5px;color:#6F7F78;margin-top:22px;
+  letter-spacing:.02em}
+.byline b{color:#C6D2CC;font-weight:500}
+
+.cta{display:flex;gap:11px;flex-wrap:wrap;margin-top:34px}
+.cta a{font-family:var(--mono);font-size:12.5px;letter-spacing:.04em;
+  text-decoration:none;padding:12px 20px;border-radius:6px;
+  border:1.5px solid rgba(255,255,255,.18);color:#DCE4E0;
+  transition:all .18s cubic-bezier(.4,0,.2,1)}
+.cta a:hover{transform:translateY(-2px)}
+.cta a.go{border-color:var(--box);color:var(--void);background:var(--box);
+  font-weight:700}
+.cta a.go:hover{box-shadow:0 8px 26px -8px rgba(41,224,126,.65)}
+.cta a.ghost:hover{border-color:var(--box);color:var(--box)}
+
+/* ---------- SIGNATURE: the live tracker ---------- */
+.scope{position:relative;border:1px solid var(--edge);border-radius:12px;
+  background:#050809;overflow:hidden;
+  box-shadow:0 30px 70px -30px rgba(0,0,0,.9),0 0 0 1px rgba(41,224,126,.07)}
+.scope-bar{display:flex;align-items:center;gap:9px;padding:10px 14px;
+  background:#0A1013;border-bottom:1px solid var(--edge);
+  font-family:var(--mono);font-size:10.5px;letter-spacing:.13em;color:#6D7C84}
+.scope-bar .live{color:var(--box)}
+.scope-bar .spacer{flex:1}
+.viewbtn{font-family:var(--mono);font-size:10px;letter-spacing:.09em;
+  background:transparent;border:1px solid #23343B;color:#7C8B92;
+  padding:4px 9px;border-radius:4px;cursor:pointer;transition:all .16s ease}
+.viewbtn:hover{color:var(--box);border-color:var(--box)}
+.viewbtn.on{color:var(--void);background:var(--box);border-color:var(--box);font-weight:700}
+#scopeCanvas{display:block;width:100%;height:auto;background:#050809}
+.scope-feet{display:flex;flex-wrap:wrap;gap:0;border-top:1px solid var(--edge);
+  background:#080D0F}
+.foot{flex:1;min-width:88px;padding:11px 14px;border-right:1px solid var(--edge)}
+.foot:last-child{border-right:0}
+.foot .k{font-family:var(--mono);font-size:9px;letter-spacing:.16em;color:#5A686F}
+.foot .v{font-family:var(--mono);font-size:14px;color:var(--box);margin-top:3px;
+  font-weight:500;font-variant-numeric:tabular-nums}
+.foot .v.warn{color:var(--amber)}
+.foot .v.off{color:#4E5C63}
+
+/* ================= SPEC STRIP ================= */
+.specs{background:var(--panel);color:#D5DEDA;border-bottom:1px solid var(--edge)}
+.specs-in{max-width:1140px;margin:0 auto;padding:0 22px;
+  display:grid;grid-template-columns:repeat(4,1fr)}
+.spec{padding:26px 8px 26px 0}
+.spec + .spec{padding-left:26px;border-left:1px solid var(--edge)}
+.spec .n{font-family:var(--display);font-size:34px;font-weight:700;
+  letter-spacing:-.03em;color:#F2F6F4;line-height:1}
+.spec .n small{font-size:15px;color:var(--box);font-weight:600;margin-left:3px}
+.spec .l{font-family:var(--mono);font-size:10px;letter-spacing:.15em;
+  text-transform:uppercase;color:#6C7B82;margin-top:9px}
+@media (max-width:760px){
+  .specs-in{grid-template-columns:1fr 1fr}
+  .spec:nth-child(3){padding-left:0;border-left:0}
+  .spec:nth-child(3),.spec:nth-child(4){border-top:1px solid var(--edge)}
+}
+
+/* ================= CONTENT ================= */
+.main{max-width:820px;margin:0 auto;padding:64px 22px 100px}
+.intro{font-size:19.5px;line-height:1.62;color:#333D44;
+  border-left:3px solid var(--ball);padding-left:22px;margin-bottom:10px}
+
+h1.section{font-family:var(--display);font-size:clamp(28px,3.6vw,40px);
+  font-weight:700;letter-spacing:-.032em;color:var(--ink);
+  margin:92px 0 22px;padding-bottom:16px;border-bottom:1px solid var(--line);
+  line-height:1.06}
+h1.section .idx{font-family:var(--mono);font-size:11px;font-weight:700;
+  color:#12A55C;letter-spacing:.17em;display:block;margin-bottom:11px}
+
+.label{font-family:var(--display);font-weight:600;font-size:20.5px;
+  color:var(--ink);margin:34px 0 8px;display:flex;align-items:center;gap:11px;
+  letter-spacing:-.012em}
+.label::before{content:"";width:7px;height:7px;background:var(--box);
+  border-radius:1px;transform:rotate(45deg);flex:none;
+  box-shadow:0 0 0 3px rgba(41,224,126,.15)}
+
+p{margin:15px 0;color:var(--body)}
+ul{margin:15px 0 15px 2px;list-style:none}
+ul li{position:relative;padding-left:24px;margin:8px 0;color:var(--body)}
+ul li::before{content:"";position:absolute;left:3px;top:.72em;width:7px;height:1.5px;
+  background:var(--box)}
+strong{color:var(--ink);font-weight:600}
+
+code.inl{font-family:var(--mono);font-size:.85em;background:#EDE9DF;
+  color:#B5301F;padding:2px 7px;border-radius:5px;white-space:nowrap}
+a.link{color:#0E8F4E;text-decoration:none;
+  border-bottom:1px solid rgba(41,224,126,.45);transition:all .16s ease}
+a.link:hover{color:#0B7540;border-bottom-color:#0B7540}
+
+/* ---------- CODE ---------- */
+.code-wrap{background:var(--panel);border-radius:11px;margin:24px 0;
+  overflow:hidden;border:1px solid var(--edge);
+  box-shadow:0 22px 48px -26px rgba(10,16,19,.6)}
+.code-bar{display:flex;align-items:center;gap:8px;padding:11px 15px;
+  background:#080D0F;border-bottom:1px solid var(--edge)}
+.code-bar .dot{width:10px;height:10px;border-radius:50%;flex:none}
+.d1{background:#FF5F57}.d2{background:#FEBC2E}.d3{background:#28C840}
+.code-bar .fname{font-family:var(--mono);font-size:11.5px;color:#77868D;
+  margin-left:9px;flex:1}
+.copy{font-family:var(--mono);font-size:10px;letter-spacing:.1em;color:#77868D;
+  background:transparent;border:1px solid #23343B;border-radius:5px;
+  padding:5px 11px;cursor:pointer;transition:all .16s ease;flex:none}
+.copy:hover{color:var(--box);border-color:var(--box)}
+.copy.done{color:var(--void);background:var(--box);border-color:var(--box);font-weight:700}
+pre{margin:0;padding:21px 22px;overflow-x:auto;
+  scrollbar-width:thin;scrollbar-color:#233238 transparent}
+pre::-webkit-scrollbar{height:9px}
+pre::-webkit-scrollbar-thumb{background:#233238;border-radius:5px}
+pre::-webkit-scrollbar-track{background:transparent}
+pre code{font-family:var(--mono);font-size:12.8px;line-height:1.62;
+  color:#CBD6DA;white-space:pre}
+
+/* ---------- TABLE ---------- */
+table{width:100%;border-collapse:collapse;margin:26px 0;font-size:15px}
+th{background:var(--panel);color:#E4EAE7;font-family:var(--mono);font-size:10.5px;
+  letter-spacing:.13em;text-transform:uppercase;text-align:left;padding:13px 15px;
+  font-weight:500}
+td{padding:13px 15px;border-bottom:1px solid var(--line);vertical-align:top;
+  color:var(--body)}
 tr:last-child td{border-bottom:none}
-tbody tr:hover{background:#F3F0E9}
-td a{color:#1f9e5a;text-decoration:none;font-family:'JetBrains Mono',monospace;font-size:13px}
-td a:hover{color:var(--box)}
+tbody tr{transition:background .14s ease}
+tbody tr:hover{background:#F1EEE5}
+td a{color:#0E8F4E;text-decoration:none;font-family:var(--mono);font-size:12.5px}
+td a:hover{color:#0B7540;text-decoration:underline}
 
-/* MEDIA */
-.video{position:relative;padding-bottom:56.25%;height:0;margin:22px 0;border-radius:10px;overflow:hidden;border:1px solid var(--line)}
+/* ---------- MEDIA ---------- */
+.video{position:relative;padding-bottom:56.25%;height:0;margin:24px 0;
+  border-radius:11px;overflow:hidden;border:1px solid var(--line);
+  box-shadow:0 20px 44px -26px rgba(14,20,24,.4)}
 .video iframe{position:absolute;top:0;left:0;width:100%;height:100%;border:0}
-.imgrow{display:flex;flex-wrap:wrap;gap:12px;margin:20px 0}
-.imgrow img{border-radius:8px;max-width:100%;border:1px solid var(--line)}
-.single-img{border-radius:10px;max-width:100%;border:1px solid var(--line);margin:20px 0}
-.headshot{width:100%;max-width:440px;height:auto;border-radius:12px;border:2px solid var(--box);margin:24px 0;display:block}
+.imgrow{display:flex;flex-wrap:wrap;gap:13px;margin:22px 0}
+.imgrow img{border-radius:9px;max-width:100%;border:1px solid var(--line)}
+.single-img{border-radius:11px;max-width:100%;border:1px solid var(--line);margin:22px 0}
+.headshot{width:100%;max-width:440px;height:auto;border-radius:12px;
+  border:2px solid var(--box);margin:26px 0;display:block;
+  box-shadow:0 22px 50px -28px rgba(14,20,24,.5)}
 
-.divider{height:1px;background:var(--line);margin:50px 0;border:0}
-.footer{border-top:1px solid var(--line);margin-top:60px;padding-top:24px;font-family:'JetBrains Mono',monospace;font-size:13px;color:var(--muted)}
+/* ---------- FOOTER ---------- */
+.footer{border-top:1px solid var(--line);margin-top:96px;padding-top:32px;
+  font-family:var(--mono);font-size:12.5px;color:var(--dim);
+  display:flex;flex-wrap:wrap;gap:12px;justify-content:space-between;
+  align-items:baseline}
+.footer .sig{color:var(--ink);font-weight:500}
+.footer .top{color:var(--dim);text-decoration:none;transition:color .16s ease}
+.footer .top:hover{color:#0E8F4E}
 
-@media (max-width:640px){
-  .track-frame{padding:22px 26px}
-  .track-tag{font-size:9px}
-  th:nth-child(2),td:nth-child(2){display:none}
+/* ---------- REVEAL + A11Y ---------- */
+.rise{opacity:0;transform:translateY(20px);
+  transition:opacity .62s cubic-bezier(.2,.6,.3,1),transform .62s cubic-bezier(.2,.6,.3,1)}
+.rise.seen{opacity:1;transform:none}
+a:focus-visible,button:focus-visible{outline:2px solid var(--box);
+  outline-offset:3px;border-radius:4px}
+@media (prefers-reduced-motion:reduce){
+  *{animation-duration:.01ms !important;animation-iteration-count:1 !important;
+    transition-duration:.01ms !important;scroll-behavior:auto !important}
+  .rise{opacity:1;transform:none}
 }
 </style>
 </head>
 <body>
 
-<header class="page-header">
-  <div class="hud-readout"><span class="rec-dot"></span> REC · TRACKING · CV_ONLINE</div>
-  <div class="track-frame">
-    <span class="track-tag">BALL_DETECTED ● conf 0.98</span>
-    <span class="br-tl"></span><span class="br-br"></span>
-    <h1 class="project-name">Ball Tracking Robot<br>with <span class="accent">OpenCV</span></h1>
+<div class="progress" id="progress"></div>
+
+<nav class="stick" id="stick">
+  <div class="stick-in">
+    <div class="stick-mark"><span class="rec-dot"></span> CV_ONLINE</div>
+    <div class="stick-links">
+      <a href="#mods">Modifications</a>
+      <a href="#final">Final</a>
+      <a href="#m2">Milestone 2</a>
+      <a href="#m1">Milestone 1</a>
+      <a href="#schematics">Schematics</a>
+      <a href="#bom">Materials</a>
+      <a href="#starter">Starter</a>
+      <a href="#resources">Resources</a>
+    </div>
   </div>
-  <div class="project-tagline">Vaideesh K · Computer Vision · Cupertino High School</div>
-  <div class="btns">
-    <a class="btn primary" href="#mods">Modifications</a>
-    <a class="btn" href="#final">Final Milestone</a>
-    <a class="btn" href="#m2">Second Milestone</a>
-    <a class="btn" href="#m1">First Milestone</a>
-    <a class="btn" href="#schematics">Schematics</a>
-    <a class="btn" href="#bom">Bill of Materials</a>
-    <a class="btn" href="#starter">Starter Project</a>
+</nav>
+
+<header class="hero">
+  <div class="hero-in">
+
+    <div class="hero-copy">
+      <div class="eyebrow"><span class="rec-dot"></span> Computer Vision · Raspberry Pi 4</div>
+      <h1 class="title">Ball Tracking<br>Robot with <span class="cv">OpenCV</span></h1>
+      <p class="lede">A robot that finds a red ball in a camera frame, pans its
+        camera to keep the ball centered, and drives toward it while reading
+        distance off three ultrasonic sensors.</p>
+      <div class="byline"><b>Vaideesh K</b> · Cupertino High School · Electrical Engineering</div>
+      <div class="cta">
+        <a class="go" href="#final">See the final build</a>
+        <a class="ghost" href="#mods">Read the modifications</a>
+      </div>
+    </div>
+
+    <!-- SIGNATURE: a working tracker. same pipeline as the robot's. -->
+    <div class="scope">
+      <div class="scope-bar">
+        <span class="live">● REC</span>
+        <span>480 × 360</span>
+        <span class="spacer"></span>
+        <button class="viewbtn on" id="btnCam" type="button">CAMERA</button>
+        <button class="viewbtn" id="btnMask" type="button">HSV MASK</button>
+      </div>
+      <canvas id="scopeCanvas" width="640" height="440"></canvas>
+      <div class="scope-feet">
+        <div class="foot"><div class="k">STATUS</div><div class="v" id="fStatus">LOCKED</div></div>
+        <div class="foot"><div class="k">ERROR X</div><div class="v" id="fErr">0 px</div></div>
+        <div class="foot"><div class="k">RADIUS</div><div class="v" id="fRad">0 px</div></div>
+        <div class="foot"><div class="k">SERVO</div><div class="v" id="fServo">90°</div></div>
+      </div>
+    </div>
+
   </div>
 </header>
+
+<section class="specs">
+  <div class="specs-in">
+    <div class="spec"><div class="n">3</div><div class="l">Milestones</div></div>
+    <div class="spec"><div class="n">3</div><div class="l">Ultrasonic sensors</div></div>
+    <div class="spec"><div class="n">140<small>°</small></div><div class="l">Camera pan range</div></div>
+    <div class="spec"><div class="n">30<small>fps</small></div><div class="l">Vision loop</div></div>
+  </div>
+</section>
 
 <main class="main">
 
@@ -911,8 +1125,359 @@ except KeyboardInterrupt:
   <div class="label">Challenges Faced</div>
   <p>There were several challenges, some harder than others. My first challenge was soldering the board — every time I soldered, the solder kept bridging to other holes, which could cause a short circuit and damage the board. Another problem was getting the red and black battery wires to sit neatly in two tiny holes and holding them in place so I could solder them properly. I had to unsolder many parts multiple times because the console simply would not turn on. But after all of these hardships, I managed to fix every one of them and get the console working properly.</p>
 
-  <div class="footer">// Vaideesh K · Ball Tracking Robot with OpenCV · Cupertino High School</div>
+  <!-- ============ RESOURCES ============ -->
+  <h1 class="section" id="resources"><span class="idx">REFERENCE</span>Resources</h1>
+  <p>These are the references and documentation I used while building the robot. The OpenCV and picamera2 docs were the most useful for the vision code, and the GPIO documentation was what I kept going back to while wiring the motors and sensors.</p>
+
+  <div class="label">Documentation</div>
+  <ul>
+    <li><a class="link" href="https://docs.opencv.org/4.x/">OpenCV Documentation</a> — the main reference for the vision code: HSV color filtering, contours, and morphological operations.</li>
+    <li><a class="link" href="https://datasheets.raspberrypi.com/camera/picamera2-manual.pdf">Picamera2 Manual</a> — how to configure and capture frames from the Raspberry Pi Camera in Python.</li>
+    <li><a class="link" href="https://sourceforge.net/p/raspberry-gpio-python/wiki/Home/">RPi.GPIO Documentation</a> — controlling the GPIO pins and using PWM for the motors and servo.</li>
+    <li><a class="link" href="https://www.raspberrypi.com/documentation/">Raspberry Pi Documentation</a> — general setup, flashing the OS, and enabling the camera.</li>
+    <li><a class="link" href="https://flask.palletsprojects.com/">Flask Documentation</a> — used to build the web dashboard and stream video to a browser.</li>
+  </ul>
+
+  <div class="label">Guides I Used</div>
+  <ul>
+    <li><a class="link" href="https://docs.opencv.org/4.x/df/d9d/tutorial_py_colorspaces.html">OpenCV: Changing Colorspaces</a> — explains BGR to HSV conversion and why HSV is better for color tracking.</li>
+    <li><a class="link" href="https://docs.opencv.org/4.x/d9/d61/tutorial_py_morphological_ops.html">OpenCV: Morphological Transformations</a> — how opening and closing clean up a mask, which is what fixed the glare holes in the ball.</li>
+    <li><a class="link" href="https://docs.opencv.org/4.x/dd/d49/tutorial_py_contour_features.html">OpenCV: Contour Features</a> — area, perimeter, and minimum enclosing circle, which I used for the roundness check.</li>
+    <li><a class="link" href="https://projects.raspberrypi.org/en/projects/physical-computing">Raspberry Pi Physical Computing</a> — basics of wiring components to the GPIO pins.</li>
+  </ul>
+
+  <div class="label">Components</div>
+  <ul>
+    <li><a class="link" href="https://components101.com/sensors/ultrasonic-sensor-working-pinout-datasheet">HC-SR04 Datasheet</a> — pinout and timing for the ultrasonic sensors.</li>
+    <li><a class="link" href="https://components101.com/modules/l9110-2-channel-motor-driver-module">L9110 Motor Driver</a> — pinout and wiring for the H-bridge that drives the motors.</li>
+  </ul>
+
+  <div class="footer">
+    <span><span class="sig">Vaideesh K</span> · Ball Tracking Robot with OpenCV</span>
+    <span>Cupertino High School · Electrical Engineering</span>
+    <a class="top" href="#">Back to top ↑</a>
+  </div>
 
 </main>
+
+<script>
+(function () {
+  var reduce = window.matchMedia &&
+    window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  /* =====================================================================
+     THE TRACKER
+     Same pipeline the robot runs: find the ball, measure how far it is
+     from the centre of the frame, pan the camera to close that error.
+     ===================================================================== */
+  var cv = document.getElementById('scopeCanvas');
+  if (cv && cv.getContext) {
+    var g = cv.getContext('2d');
+    var W = cv.width, H = cv.height;
+    var CX = W / 2;
+    var DEAD = 62;              // deadzone in px, same idea as the robot's
+    var maskView = false;
+
+    // the ball
+    var ball = { x: W * 0.30, y: H * 0.42, vx: 1.9, vy: 1.25, r: 40 };
+    // the tracker's smoothed estimate (it lags slightly, like the real one)
+    var est = { x: ball.x, y: ball.y, r: ball.r, has: false };
+    var servo = 90;
+    var t = 0;
+
+    var elStatus = document.getElementById('fStatus');
+    var elErr = document.getElementById('fErr');
+    var elRad = document.getElementById('fRad');
+    var elServo = document.getElementById('fServo');
+
+    var bCam = document.getElementById('btnCam');
+    var bMask = document.getElementById('btnMask');
+    function setView(m) {
+      maskView = m;
+      bCam.classList.toggle('on', !m);
+      bMask.classList.toggle('on', m);
+    }
+    if (bCam) bCam.addEventListener('click', function () { setView(false); });
+    if (bMask) bMask.addEventListener('click', function () { setView(true); });
+
+    // let people push the ball around
+    cv.addEventListener('pointermove', function (e) {
+      var b = cv.getBoundingClientRect();
+      var mx = (e.clientX - b.left) * (W / b.width);
+      var my = (e.clientY - b.top) * (H / b.height);
+      var dx = ball.x - mx, dy = ball.y - my;
+      var d = Math.sqrt(dx * dx + dy * dy);
+      if (d < 130 && d > 0.1) {
+        ball.vx += (dx / d) * 0.55;
+        ball.vy += (dy / d) * 0.55;
+      }
+    });
+
+    function step() {
+      t += 0.016;
+
+      // ---- move the ball ----
+      ball.x += ball.vx;
+      ball.y += ball.vy;
+      // a little wander so it never looks like a screensaver loop
+      ball.vx += Math.sin(t * 0.7) * 0.016;
+      ball.vy += Math.cos(t * 0.53) * 0.013;
+
+      var pad = ball.r + 10;
+      if (ball.x < pad) { ball.x = pad; ball.vx = Math.abs(ball.vx); }
+      if (ball.x > W - pad) { ball.x = W - pad; ball.vx = -Math.abs(ball.vx); }
+      if (ball.y < pad) { ball.y = pad; ball.vy = Math.abs(ball.vy); }
+      if (ball.y > H - pad) { ball.y = H - pad; ball.vy = -Math.abs(ball.vy); }
+
+      // gentle speed clamp
+      var sp = Math.sqrt(ball.vx * ball.vx + ball.vy * ball.vy);
+      var cap = 2.9;
+      if (sp > cap) { ball.vx *= cap / sp; ball.vy *= cap / sp; }
+      if (sp < 1.0) { ball.vx *= 1.03; ball.vy *= 1.03; }
+
+      // ball gets bigger/smaller as if moving toward and away
+      ball.r = 34 + Math.sin(t * 0.42) * 9;
+
+      // ---- the tracker's estimate: 0.6 old / 0.4 new, like the robot ----
+      est.x = est.x * 0.6 + ball.x * 0.4;
+      est.y = est.y * 0.6 + ball.y * 0.4;
+      est.r = est.r * 0.6 + ball.r * 0.4;
+      est.has = true;
+
+      // ---- pan the camera to close the error ----
+      var err = est.x - CX;
+      if (Math.abs(err) > DEAD) {
+        var stepDeg = 0.02 * err;
+        stepDeg = Math.max(-1.6, Math.min(1.6, stepDeg));
+        servo = Math.max(20, Math.min(160, servo + stepDeg));
+      }
+
+      draw(err);
+      raf = requestAnimationFrame(step);
+    }
+
+    function draw(err) {
+      var locked = Math.abs(err) <= DEAD;
+
+      // ---------- background ----------
+      if (maskView) {
+        g.fillStyle = '#000';
+        g.fillRect(0, 0, W, H);
+      } else {
+        g.fillStyle = '#050809';
+        g.fillRect(0, 0, W, H);
+        // sensor grid
+        g.strokeStyle = 'rgba(41,224,126,.05)';
+        g.lineWidth = 1;
+        for (var x = 0; x <= W; x += 40) {
+          g.beginPath(); g.moveTo(x + .5, 0); g.lineTo(x + .5, H); g.stroke();
+        }
+        for (var y = 0; y <= H; y += 40) {
+          g.beginPath(); g.moveTo(0, y + .5); g.lineTo(W, y + .5); g.stroke();
+        }
+      }
+
+      // ---------- the ball ----------
+      if (maskView) {
+        // what the HSV filter actually passes: a white blob, with the
+        // glare holes and stray specks that made the real build tricky
+        g.fillStyle = '#fff';
+        g.beginPath(); g.arc(ball.x, ball.y, ball.r, 0, 6.2832); g.fill();
+        g.fillStyle = '#000';
+        g.beginPath();
+        g.arc(ball.x - ball.r * .3, ball.y - ball.r * .34, ball.r * .19, 0, 6.2832);
+        g.fill();
+        g.beginPath();
+        g.arc(ball.x + ball.r * .12, ball.y - ball.r * .46, ball.r * .1, 0, 6.2832);
+        g.fill();
+        g.fillStyle = '#fff';
+        g.beginPath();
+        g.arc(ball.x + ball.r * 1.7, ball.y - ball.r * 1.25, 4, 0, 6.2832);
+        g.fill();
+        g.beginPath();
+        g.arc(ball.x - ball.r * 1.9, ball.y + ball.r * 1.1, 2.6, 0, 6.2832);
+        g.fill();
+      } else {
+        var grd = g.createRadialGradient(
+          ball.x - ball.r * .34, ball.y - ball.r * .38, ball.r * .1,
+          ball.x, ball.y, ball.r);
+        grd.addColorStop(0, '#FF8A7E');
+        grd.addColorStop(.45, '#FF3B2F');
+        grd.addColorStop(1, '#B21B12');
+        g.fillStyle = grd;
+        g.beginPath(); g.arc(ball.x, ball.y, ball.r, 0, 6.2832); g.fill();
+        // specular highlight - the glare that breaks the mask
+        g.fillStyle = 'rgba(255,255,255,.5)';
+        g.beginPath();
+        g.arc(ball.x - ball.r * .33, ball.y - ball.r * .36, ball.r * .17, 0, 6.2832);
+        g.fill();
+      }
+
+      // ---------- deadzone rails ----------
+      g.strokeStyle = 'rgba(120,140,150,.28)';
+      g.setLineDash([5, 6]); g.lineWidth = 1;
+      g.beginPath(); g.moveTo(CX - DEAD, 0); g.lineTo(CX - DEAD, H); g.stroke();
+      g.beginPath(); g.moveTo(CX + DEAD, 0); g.lineTo(CX + DEAD, H); g.stroke();
+      g.setLineDash([]);
+
+      // ---------- centre crosshair ----------
+      g.strokeStyle = 'rgba(41,224,126,.5)'; g.lineWidth = 1;
+      g.beginPath(); g.moveTo(CX, H / 2 - 13); g.lineTo(CX, H / 2 + 13); g.stroke();
+      g.beginPath(); g.moveTo(CX - 13, H / 2); g.lineTo(CX + 13, H / 2); g.stroke();
+
+      // ---------- the detection box ----------
+      var col = locked ? '#29E07E' : '#F0B429';
+      var bx = est.x - est.r - 12, by = est.y - est.r - 12;
+      var bw = (est.r + 12) * 2, bh = (est.r + 12) * 2;
+      var c = 17;
+
+      g.strokeStyle = col; g.lineWidth = 2.4; g.lineCap = 'square';
+      // four corner brackets, not a full rectangle
+      g.beginPath();
+      g.moveTo(bx, by + c); g.lineTo(bx, by); g.lineTo(bx + c, by);
+      g.moveTo(bx + bw - c, by); g.lineTo(bx + bw, by); g.lineTo(bx + bw, by + c);
+      g.moveTo(bx + bw, by + bh - c); g.lineTo(bx + bw, by + bh); g.lineTo(bx + bw - c, by + bh);
+      g.moveTo(bx + c, by + bh); g.lineTo(bx, by + bh); g.lineTo(bx, by + bh - c);
+      g.stroke();
+
+      // centroid
+      g.fillStyle = col;
+      g.beginPath(); g.arc(est.x, est.y, 3, 0, 6.2832); g.fill();
+
+      // the error line: centre of frame -> centre of ball
+      g.strokeStyle = locked ? 'rgba(41,224,126,.45)' : 'rgba(240,180,41,.6)';
+      g.lineWidth = 1.4; g.setLineDash([3, 4]);
+      g.beginPath(); g.moveTo(CX, est.y); g.lineTo(est.x, est.y); g.stroke();
+      g.setLineDash([]);
+
+      // label above the box
+      var tag = locked ? 'BALL · LOCKED' : 'BALL · TRACKING';
+      g.font = '600 11px JetBrains Mono, monospace';
+      var tw = g.measureText(tag).width;
+      g.fillStyle = col;
+      g.fillRect(bx, by - 21, tw + 14, 16);
+      g.fillStyle = '#050809';
+      g.fillText(tag, bx + 7, by - 9);
+
+      // ---------- servo bar along the bottom ----------
+      var pct = (servo - 20) / 140;
+      g.fillStyle = 'rgba(255,255,255,.07)';
+      g.fillRect(24, H - 20, W - 48, 3);
+      g.fillStyle = '#29E07E';
+      g.fillRect(24 + (W - 48) * pct - 13, H - 23, 26, 9);
+      g.font = '9px JetBrains Mono, monospace';
+      g.fillStyle = '#4E5C63';
+      g.fillText('20°', 24, H - 28);
+      g.textAlign = 'right';
+      g.fillText('160°', W - 24, H - 28);
+      g.textAlign = 'left';
+
+      // ---------- telemetry ----------
+      if (elStatus) {
+        elStatus.textContent = locked ? 'LOCKED' : 'TRACKING';
+        elStatus.className = locked ? 'v' : 'v warn';
+        elErr.textContent = Math.round(err) + ' px';
+        elRad.textContent = Math.round(est.r) + ' px';
+        elServo.textContent = Math.round(servo) + '°';
+      }
+    }
+
+    var raf;
+    if (reduce) {
+      draw(est.x - CX);          // one static frame, no motion
+    } else {
+      // only animate while the hero is actually on screen
+      if ('IntersectionObserver' in window) {
+        new IntersectionObserver(function (en) {
+          en.forEach(function (e) {
+            if (e.isIntersecting && !raf) raf = requestAnimationFrame(step);
+            else if (!e.isIntersecting && raf) { cancelAnimationFrame(raf); raf = null; }
+          });
+        }, { threshold: 0 }).observe(cv);
+      } else {
+        raf = requestAnimationFrame(step);
+      }
+    }
+  }
+
+  /* ================= SCROLL PROGRESS + STICKY NAV ================= */
+  var bar = document.getElementById('progress');
+  var stick = document.getElementById('stick');
+  var hero = document.querySelector('.hero');
+
+  function onScroll() {
+    var h = document.documentElement.scrollHeight - window.innerHeight;
+    bar.style.width = (h > 0 ? (window.scrollY / h) * 100 : 0) + '%';
+    stick.classList.toggle('on', window.scrollY > hero.offsetHeight - 60);
+  }
+  window.addEventListener('scroll', onScroll, { passive: true });
+  onScroll();
+
+  /* ================= ACTIVE SECTION ================= */
+  var links = Array.prototype.slice.call(document.querySelectorAll('.stick-links a'));
+  var targets = links
+    .map(function (a) { return document.querySelector(a.getAttribute('href')); })
+    .filter(Boolean);
+
+  if ('IntersectionObserver' in window) {
+    var spy = new IntersectionObserver(function (entries) {
+      entries.forEach(function (e) {
+        if (!e.isIntersecting) return;
+        links.forEach(function (a) {
+          a.classList.toggle('here', a.getAttribute('href') === '#' + e.target.id);
+        });
+      });
+    }, { rootMargin: '-14% 0px -72% 0px' });
+    targets.forEach(function (x) { spy.observe(x); });
+
+    /* ================= REVEAL ON SCROLL ================= */
+    if (!reduce) {
+      var blocks = document.querySelectorAll(
+        '.main h1.section, .main .label, .main p, .main ul, .main table,' +
+        '.main .code-wrap, .main .video, .main .imgrow, .main .single-img, .main .headshot');
+      Array.prototype.forEach.call(blocks, function (el) { el.classList.add('rise'); });
+      var reveal = new IntersectionObserver(function (entries) {
+        entries.forEach(function (e) {
+          if (e.isIntersecting) { e.target.classList.add('seen'); reveal.unobserve(e.target); }
+        });
+      }, { rootMargin: '0px 0px -7% 0px', threshold: 0.04 });
+      Array.prototype.forEach.call(blocks, function (el) { reveal.observe(el); });
+    }
+  }
+
+  /* ================= COPY BUTTONS ================= */
+  Array.prototype.forEach.call(document.querySelectorAll('.code-wrap'), function (wrap) {
+    var pre = wrap.querySelector('pre');
+    var cbar = wrap.querySelector('.code-bar');
+    if (!pre || !cbar) return;
+    var btn = document.createElement('button');
+    btn.className = 'copy';
+    btn.type = 'button';
+    btn.textContent = 'COPY';
+    btn.addEventListener('click', function () {
+      function ok() {
+        btn.textContent = 'COPIED';
+        btn.classList.add('done');
+        setTimeout(function () {
+          btn.textContent = 'COPY';
+          btn.classList.remove('done');
+        }, 1600);
+      }
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(pre.innerText).then(ok, function () {});
+      } else {
+        var ta = document.createElement('textarea');
+        ta.value = pre.innerText;
+        document.body.appendChild(ta);
+        ta.select();
+        try { document.execCommand('copy'); ok(); } catch (err) {}
+        document.body.removeChild(ta);
+      }
+    });
+    cbar.appendChild(btn);
+  });
+})();
+</script>
+
 </body>
 </html>
