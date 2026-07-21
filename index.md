@@ -4,260 +4,399 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Ball Tracking Robot with OpenCV | Vaideesh K</title>
-<meta name="description" content="A Raspberry Pi robot that finds a red ball with OpenCV, pans a servo camera to keep it centered, and drives to it while avoiding obstacles. Built by Vaideesh K.">
+<meta name="description" content="A Raspberry Pi robot that finds a red ball with OpenCV, pans a servo camera to keep it centred, and drives to it while avoiding obstacles. Built by Vaideesh K.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,600;12..96,700;12..96,800&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,600;12..96,700;12..96,800&family=Inter:wght@400;450;500;600&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
 <style>
 :root{
-  /* optical instrument palette - deep housing, sensor red, phosphor green */
-  --void:#070B0D;
-  --panel:#0C1317;
-  --panel-2:#121C21;
-  --edge:#1C2A31;
-  --paper:#F7F5F0;
-  --ink:#0E1418;
-  --body:#28333A;
+  /* instrument housing — everything is built from the machine's own world */
+  --void:#05090B;
+  --surface:#0A1014;
+  --raised:#101A1F;
+  --edge:#1B272E;
+  --edge-2:#243138;
+
+  --bright:#F2F7F5;
+  --text:#B9C7CC;
+  --dim:#7A8B92;
+  --faint:#546268;
+
   --ball:#FF3B2F;      /* the tracked object */
   --box:#29E07E;       /* the detection overlay */
-  --amber:#F0B429;     /* warnings / telemetry */
-  --dim:#5F6E76;
-  --line:#E2DED4;
+  --amber:#F5B93B;     /* uncertain / in motion */
 
   --display:'Bricolage Grotesque',system-ui,sans-serif;
-  --text:'Inter',system-ui,-apple-system,sans-serif;
+  --sans:'Inter',system-ui,-apple-system,sans-serif;
   --mono:'JetBrains Mono',ui-monospace,monospace;
+
+  --shell:1180px;
+  --read:790px;
 }
 *{box-sizing:border-box;margin:0;padding:0}
-html{scroll-behavior:smooth;scroll-padding-top:70px}
-body{background:var(--paper);color:var(--body);font-family:var(--text);
-  font-size:17px;line-height:1.72;-webkit-font-smoothing:antialiased;
-  text-rendering:optimizeLegibility}
+html{scroll-behavior:smooth;scroll-padding-top:74px;background:var(--void)}
+body{background:var(--void);color:var(--text);font-family:var(--sans);
+  font-size:17px;line-height:1.75;font-weight:400;
+  -webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility;
+  overflow-x:hidden}
 ::selection{background:var(--box);color:var(--void)}
 
-/* ================= SCROLL PROGRESS ================= */
+/* ================================================================
+   BOOT — the machine powers up before the page exists
+   ================================================================ */
+#boot{position:fixed;inset:0;z-index:900;background:var(--void);
+  display:flex;align-items:center;justify-content:center;
+  transition:opacity .55s ease,visibility .55s ease}
+#boot.gone{opacity:0;visibility:hidden;pointer-events:none}
+.boot-in{font-family:var(--mono);font-size:12.5px;line-height:2.1;
+  color:var(--box);width:min(90vw,340px)}
+.boot-in .l{opacity:0;transform:translateY(4px);
+  transition:opacity .3s ease,transform .3s ease;display:flex;gap:10px}
+.boot-in .l.up{opacity:1;transform:none}
+.boot-in .l i{color:var(--faint);font-style:normal;flex:none;width:52px}
+.boot-in .l b{color:var(--box);font-weight:400;margin-left:auto}
+.boot-rail{height:2px;background:var(--edge);margin-top:22px;overflow:hidden;
+  border-radius:2px}
+.boot-rail span{display:block;height:100%;width:0;background:var(--box);
+  transition:width 1.25s cubic-bezier(.5,0,.2,1)}
+
+/* ================================================================
+   RETICLE CURSOR — desktop only, pointer devices only
+   ================================================================ */
+#retic{position:fixed;top:0;left:0;width:26px;height:26px;pointer-events:none;
+  z-index:800;opacity:0;transition:opacity .25s ease,width .2s ease,height .2s ease}
+#retic i{position:absolute;width:8px;height:8px;border:1.5px solid var(--box);
+  transition:all .18s cubic-bezier(.4,0,.2,1)}
+#retic i:nth-child(1){top:0;left:0;border-right:0;border-bottom:0}
+#retic i:nth-child(2){top:0;right:0;border-left:0;border-bottom:0}
+#retic i:nth-child(3){bottom:0;left:0;border-right:0;border-top:0}
+#retic i:nth-child(4){bottom:0;right:0;border-left:0;border-top:0}
+#retic.live{opacity:1}
+#retic.lock{width:44px;height:44px}
+#retic.lock i{border-color:var(--ball);width:11px;height:11px}
+@media (hover:none),(pointer:coarse){#retic{display:none}}
+
+/* ================================================================
+   PROGRESS + STICKY NAV
+   ================================================================ */
 .progress{position:fixed;top:0;left:0;height:2px;width:0;background:var(--box);
-  z-index:200;transition:width .1s linear;box-shadow:0 0 12px rgba(41,224,126,.7)}
-
-/* ================= STICKY NAV ================= */
+  z-index:200;transition:width .1s linear;box-shadow:0 0 14px rgba(41,224,126,.8)}
 .stick{position:fixed;top:0;left:0;right:0;z-index:150;
-  background:rgba(7,11,13,.92);backdrop-filter:blur(16px) saturate(140%);
-  -webkit-backdrop-filter:blur(16px) saturate(140%);
-  border-bottom:1px solid rgba(41,224,126,.16);
-  transform:translateY(-101%);transition:transform .34s cubic-bezier(.4,0,.2,1)}
+  background:rgba(5,9,11,.82);backdrop-filter:blur(20px) saturate(150%);
+  -webkit-backdrop-filter:blur(20px) saturate(150%);
+  border-bottom:1px solid rgba(41,224,126,.14);
+  transform:translateY(-101%);transition:transform .36s cubic-bezier(.4,0,.2,1)}
 .stick.on{transform:translateY(0)}
-.stick-in{max-width:1140px;margin:0 auto;padding:0 22px;display:flex;
-  align-items:center;gap:18px;height:56px}
-.stick-mark{font-family:var(--mono);font-size:11px;letter-spacing:.16em;
-  color:var(--box);display:flex;align-items:center;gap:8px;flex:none}
-.stick-links{display:flex;gap:2px;overflow-x:auto;scrollbar-width:none;margin-left:auto}
+.stick-in{max-width:var(--shell);margin:0 auto;padding:0 24px;display:flex;
+  align-items:center;gap:20px;height:58px}
+.stick-mark{font-family:var(--mono);font-size:11px;letter-spacing:.17em;
+  color:var(--box);display:flex;align-items:center;gap:9px;flex:none}
+.stick-links{display:flex;gap:1px;overflow-x:auto;scrollbar-width:none;margin-left:auto}
 .stick-links::-webkit-scrollbar{display:none}
-.stick-links a{font-family:var(--mono);font-size:11.5px;color:#8A9A93;
-  text-decoration:none;padding:7px 11px;border-radius:5px;white-space:nowrap;
-  transition:color .16s ease,background .16s ease}
-.stick-links a:hover{color:#EDEFEC;background:rgba(255,255,255,.06)}
-.stick-links a.here{color:var(--box);background:rgba(41,224,126,.11)}
-@media (max-width:780px){.stick-mark{display:none}.stick-links{margin-left:0}}
+.stick-links a{font-family:var(--mono);font-size:11.5px;color:var(--dim);
+  text-decoration:none;padding:7px 12px;border-radius:5px;white-space:nowrap;
+  position:relative;transition:color .16s ease,background .16s ease}
+.stick-links a:hover{color:var(--bright);background:rgba(255,255,255,.05)}
+.stick-links a.here{color:var(--box);background:rgba(41,224,126,.1)}
+@media (max-width:820px){.stick-mark{display:none}.stick-links{margin-left:0}}
 
-/* ================= HERO ================= */
-.hero{position:relative;background:var(--void);color:#E9EEEC;
-  padding:0 22px 0;overflow:hidden;border-bottom:1px solid rgba(41,224,126,.25)}
-/* faint optical grid, like a sensor readout */
+/* ================================================================
+   HERO
+   ================================================================ */
+.hero{position:relative;padding:0 24px;overflow:hidden;
+  border-bottom:1px solid var(--edge)}
 .hero::before{content:"";position:absolute;inset:0;pointer-events:none;
-  background-image:linear-gradient(rgba(41,224,126,.045) 1px,transparent 1px),
-                   linear-gradient(90deg,rgba(41,224,126,.045) 1px,transparent 1px);
-  background-size:40px 40px;
-  mask-image:radial-gradient(ellipse 90% 70% at 50% 45%,#000 20%,transparent 78%);
-  -webkit-mask-image:radial-gradient(ellipse 90% 70% at 50% 45%,#000 20%,transparent 78%)}
-.hero-in{position:relative;max-width:1140px;margin:0 auto;
-  padding:78px 0 74px;display:grid;grid-template-columns:1fr 1fr;
-  gap:60px;align-items:center}
-@media (max-width:940px){
-  .hero-in{grid-template-columns:1fr;gap:40px;padding:60px 0 62px}
+  background-image:linear-gradient(rgba(41,224,126,.05) 1px,transparent 1px),
+                   linear-gradient(90deg,rgba(41,224,126,.05) 1px,transparent 1px);
+  background-size:44px 44px;
+  mask-image:radial-gradient(ellipse 92% 74% at 50% 44%,#000 18%,transparent 76%);
+  -webkit-mask-image:radial-gradient(ellipse 92% 74% at 50% 44%,#000 18%,transparent 76%)}
+/* a slow ambient sweep, like a sensor refreshing */
+.hero::after{content:"";position:absolute;inset:0;pointer-events:none;
+  background:linear-gradient(100deg,transparent 38%,rgba(41,224,126,.045) 50%,transparent 62%);
+  background-size:280% 100%;animation:sweep 9s linear infinite}
+@keyframes sweep{0%{background-position:180% 0}100%{background-position:-80% 0}}
+
+.hero-in{position:relative;max-width:var(--shell);margin:0 auto;
+  padding:86px 0 82px;display:grid;grid-template-columns:1.02fr 1fr;
+  gap:64px;align-items:center;z-index:1}
+@media (max-width:980px){
+  .hero-in{grid-template-columns:1fr;gap:44px;padding:62px 0 66px}
 }
 
-.eyebrow{font-family:var(--mono);font-size:11px;letter-spacing:.24em;
+/* staged entrance after boot */
+.up{opacity:0;transform:translateY(22px)}
+body.ready .up{opacity:1;transform:none;
+  transition:opacity .7s cubic-bezier(.2,.6,.3,1),transform .7s cubic-bezier(.2,.6,.3,1)}
+body.ready .d1{transition-delay:.05s}
+body.ready .d2{transition-delay:.15s}
+body.ready .d3{transition-delay:.25s}
+body.ready .d4{transition-delay:.35s}
+body.ready .d5{transition-delay:.45s}
+
+.eyebrow{font-family:var(--mono);font-size:11px;letter-spacing:.25em;
   text-transform:uppercase;color:var(--box);display:flex;align-items:center;
-  gap:10px;margin-bottom:26px}
+  gap:11px;margin-bottom:28px}
 .rec-dot{width:8px;height:8px;border-radius:50%;background:var(--ball);
   box-shadow:0 0 0 0 rgba(255,59,47,.65);animation:rec 2s ease-out infinite;flex:none}
 @keyframes rec{
   0%{box-shadow:0 0 0 0 rgba(255,59,47,.6)}
-  70%{box-shadow:0 0 0 11px rgba(255,59,47,0)}
+  70%{box-shadow:0 0 0 12px rgba(255,59,47,0)}
   100%{box-shadow:0 0 0 0 rgba(255,59,47,0)}
 }
 
 h1.title{font-family:var(--display);font-weight:800;
-  font-size:clamp(38px,5.6vw,72px);line-height:.98;letter-spacing:-.035em;
-  color:#F2F6F4}
+  font-size:clamp(40px,6vw,76px);line-height:.96;letter-spacing:-.04em;
+  color:var(--bright)}
 h1.title .cv{color:var(--ball);position:relative;display:inline-block}
-/* the detection bracket sits on the words "OpenCV" - the page tracking itself */
 h1.title .cv::before,h1.title .cv::after{content:"";position:absolute;
-  width:14px;height:14px;border:2px solid var(--box);opacity:.9}
-h1.title .cv::before{top:-9px;left:-11px;border-right:0;border-bottom:0}
-h1.title .cv::after{bottom:-9px;right:-11px;border-left:0;border-top:0}
+  width:15px;height:15px;border:2px solid var(--box)}
+h1.title .cv::before{top:-10px;left:-12px;border-right:0;border-bottom:0}
+h1.title .cv::after{bottom:-10px;right:-12px;border-left:0;border-top:0}
 
-.lede{font-size:17.5px;line-height:1.62;color:#9DAAA4;max-width:44ch;margin-top:26px}
-.byline{font-family:var(--mono);font-size:12.5px;color:#6F7F78;margin-top:22px;
-  letter-spacing:.02em}
-.byline b{color:#C6D2CC;font-weight:500}
+.lede{font-size:18px;line-height:1.66;color:var(--dim);max-width:45ch;margin-top:28px}
+.byline{font-family:var(--mono);font-size:12.5px;color:var(--faint);margin-top:24px}
+.byline b{color:var(--text);font-weight:500}
 
-.cta{display:flex;gap:11px;flex-wrap:wrap;margin-top:34px}
+.cta{display:flex;gap:12px;flex-wrap:wrap;margin-top:36px}
 .cta a{font-family:var(--mono);font-size:12.5px;letter-spacing:.04em;
-  text-decoration:none;padding:12px 20px;border-radius:6px;
-  border:1.5px solid rgba(255,255,255,.18);color:#DCE4E0;
-  transition:all .18s cubic-bezier(.4,0,.2,1)}
-.cta a:hover{transform:translateY(-2px)}
-.cta a.go{border-color:var(--box);color:var(--void);background:var(--box);
-  font-weight:700}
-.cta a.go:hover{box-shadow:0 8px 26px -8px rgba(41,224,126,.65)}
-.cta a.ghost:hover{border-color:var(--box);color:var(--box)}
+  text-decoration:none;padding:13px 22px;border-radius:7px;
+  border:1.5px solid var(--edge-2);color:var(--text);
+  transition:all .2s cubic-bezier(.4,0,.2,1)}
+.cta a.go{border-color:var(--box);color:var(--void);background:var(--box);font-weight:700}
+.cta a.go:hover{transform:translateY(-2px);box-shadow:0 12px 30px -10px rgba(41,224,126,.7)}
+.cta a.ghost:hover{border-color:var(--box);color:var(--box);transform:translateY(-2px)}
 
-/* ---------- SIGNATURE: the live tracker ---------- */
-.scope{position:relative;border:1px solid var(--edge);border-radius:12px;
-  background:#050809;overflow:hidden;
-  box-shadow:0 30px 70px -30px rgba(0,0,0,.9),0 0 0 1px rgba(41,224,126,.07)}
-.scope-bar{display:flex;align-items:center;gap:9px;padding:10px 14px;
-  background:#0A1013;border-bottom:1px solid var(--edge);
-  font-family:var(--mono);font-size:10.5px;letter-spacing:.13em;color:#6D7C84}
+/* ---------------- SIGNATURE: the live tracker ---------------- */
+.scope{position:relative;border:1px solid var(--edge);border-radius:14px;
+  background:#04070A;overflow:hidden;
+  box-shadow:0 40px 90px -36px rgba(0,0,0,.95),0 0 0 1px rgba(41,224,126,.06)}
+.scope-bar{display:flex;align-items:center;gap:10px;padding:11px 15px;
+  background:#070C0F;border-bottom:1px solid var(--edge);
+  font-family:var(--mono);font-size:10.5px;letter-spacing:.13em;color:var(--faint)}
 .scope-bar .live{color:var(--box)}
 .scope-bar .spacer{flex:1}
 .viewbtn{font-family:var(--mono);font-size:10px;letter-spacing:.09em;
-  background:transparent;border:1px solid #23343B;color:#7C8B92;
-  padding:4px 9px;border-radius:4px;cursor:pointer;transition:all .16s ease}
+  background:transparent;border:1px solid var(--edge-2);color:var(--dim);
+  padding:5px 10px;border-radius:5px;cursor:pointer;transition:all .16s ease}
 .viewbtn:hover{color:var(--box);border-color:var(--box)}
 .viewbtn.on{color:var(--void);background:var(--box);border-color:var(--box);font-weight:700}
-#scopeCanvas{display:block;width:100%;height:auto;background:#050809}
-.scope-feet{display:flex;flex-wrap:wrap;gap:0;border-top:1px solid var(--edge);
-  background:#080D0F}
-.foot{flex:1;min-width:88px;padding:11px 14px;border-right:1px solid var(--edge)}
+#scopeCanvas{display:block;width:100%;height:auto;background:#04070A;cursor:crosshair}
+.scope-feet{display:flex;flex-wrap:wrap;border-top:1px solid var(--edge);background:#070C0F}
+.foot{flex:1;min-width:86px;padding:12px 15px;border-right:1px solid var(--edge)}
 .foot:last-child{border-right:0}
-.foot .k{font-family:var(--mono);font-size:9px;letter-spacing:.16em;color:#5A686F}
-.foot .v{font-family:var(--mono);font-size:14px;color:var(--box);margin-top:3px;
+.foot .k{font-family:var(--mono);font-size:9px;letter-spacing:.17em;color:var(--faint)}
+.foot .v{font-family:var(--mono);font-size:14px;color:var(--box);margin-top:4px;
   font-weight:500;font-variant-numeric:tabular-nums}
 .foot .v.warn{color:var(--amber)}
-.foot .v.off{color:#4E5C63}
+.scope-hint{font-family:var(--mono);font-size:10.5px;color:var(--faint);
+  text-align:center;margin-top:13px;letter-spacing:.05em}
 
-/* ================= SPEC STRIP ================= */
-.specs{background:var(--panel);color:#D5DEDA;border-bottom:1px solid var(--edge)}
-.specs-in{max-width:1140px;margin:0 auto;padding:0 22px;
+/* ================================================================
+   SPEC STRIP
+   ================================================================ */
+.specs{background:var(--surface);border-bottom:1px solid var(--edge)}
+.specs-in{max-width:var(--shell);margin:0 auto;padding:0 24px;
   display:grid;grid-template-columns:repeat(4,1fr)}
-.spec{padding:26px 8px 26px 0}
-.spec + .spec{padding-left:26px;border-left:1px solid var(--edge)}
-.spec .n{font-family:var(--display);font-size:34px;font-weight:700;
-  letter-spacing:-.03em;color:#F2F6F4;line-height:1}
-.spec .n small{font-size:15px;color:var(--box);font-weight:600;margin-left:3px}
-.spec .l{font-family:var(--mono);font-size:10px;letter-spacing:.15em;
-  text-transform:uppercase;color:#6C7B82;margin-top:9px}
-@media (max-width:760px){
+.spec{padding:30px 10px 30px 0}
+.spec + .spec{padding-left:30px;border-left:1px solid var(--edge)}
+.spec .n{font-family:var(--display);font-size:38px;font-weight:700;
+  letter-spacing:-.035em;color:var(--bright);line-height:1;
+  font-variant-numeric:tabular-nums}
+.spec .n small{font-size:16px;color:var(--box);font-weight:600;margin-left:3px}
+.spec .l{font-family:var(--mono);font-size:10px;letter-spacing:.16em;
+  text-transform:uppercase;color:var(--faint);margin-top:10px}
+@media (max-width:780px){
   .specs-in{grid-template-columns:1fr 1fr}
   .spec:nth-child(3){padding-left:0;border-left:0}
   .spec:nth-child(3),.spec:nth-child(4){border-top:1px solid var(--edge)}
 }
 
-/* ================= CONTENT ================= */
-.main{max-width:820px;margin:0 auto;padding:64px 22px 100px}
-.intro{font-size:19.5px;line-height:1.62;color:#333D44;
-  border-left:3px solid var(--ball);padding-left:22px;margin-bottom:10px}
+/* ================================================================
+   THE LAB — interactive HSV playground
+   ================================================================ */
+.lab{border-bottom:1px solid var(--edge);background:var(--void);
+  padding:80px 24px 84px}
+.lab-in{max-width:var(--shell);margin:0 auto}
+.lab-head{max-width:var(--read);margin-bottom:38px}
+.kicker{font-family:var(--mono);font-size:11px;letter-spacing:.19em;
+  text-transform:uppercase;color:var(--box);margin-bottom:14px}
+.lab-head h2{font-family:var(--display);font-size:clamp(27px,3.6vw,40px);
+  font-weight:700;letter-spacing:-.035em;color:var(--bright);line-height:1.06}
+.lab-head p{color:var(--dim);margin-top:16px;font-size:17px}
+.lab-grid{display:grid;grid-template-columns:1fr 320px;gap:26px;align-items:start}
+@media (max-width:900px){.lab-grid{grid-template-columns:1fr}}
 
-h1.section{font-family:var(--display);font-size:clamp(28px,3.6vw,40px);
-  font-weight:700;letter-spacing:-.032em;color:var(--ink);
-  margin:92px 0 22px;padding-bottom:16px;border-bottom:1px solid var(--line);
-  line-height:1.06}
+.lab-stage{border:1px solid var(--edge);border-radius:13px;overflow:hidden;
+  background:#04070A;box-shadow:0 30px 70px -34px rgba(0,0,0,.9)}
+.lab-stage .scope-bar{border-radius:0}
+#labCanvas{display:block;width:100%;height:auto;background:#04070A}
+
+.panel{border:1px solid var(--edge);border-radius:13px;background:var(--surface);
+  padding:22px;position:sticky;top:78px}
+.panel h3{font-family:var(--mono);font-size:10.5px;letter-spacing:.17em;
+  text-transform:uppercase;color:var(--faint);margin-bottom:20px;font-weight:500}
+.knob{margin-bottom:20px}
+.knob-top{display:flex;justify-content:space-between;align-items:baseline;
+  font-family:var(--mono);font-size:11.5px;margin-bottom:9px}
+.knob-top span{color:var(--text)}
+.knob-top b{color:var(--box);font-weight:500;font-variant-numeric:tabular-nums}
+input[type=range]{-webkit-appearance:none;appearance:none;width:100%;height:3px;
+  background:var(--edge-2);border-radius:3px;outline:none;cursor:pointer}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;appearance:none;
+  width:15px;height:15px;border-radius:50%;background:var(--box);cursor:pointer;
+  border:3px solid var(--surface);box-shadow:0 0 0 1px var(--box);
+  transition:transform .14s ease}
+input[type=range]::-webkit-slider-thumb:hover{transform:scale(1.22)}
+input[type=range]::-moz-range-thumb{width:13px;height:13px;border-radius:50%;
+  background:var(--box);cursor:pointer;border:3px solid var(--surface);
+  box-shadow:0 0 0 1px var(--box)}
+.verdict{margin-top:24px;padding-top:20px;border-top:1px solid var(--edge);
+  font-family:var(--mono);font-size:11.5px;line-height:1.85}
+.verdict div{display:flex;justify-content:space-between;gap:12px}
+.verdict .g{color:var(--box)}
+.verdict .a{color:var(--amber)}
+.verdict .r{color:var(--ball)}
+.verdict em{color:var(--faint);font-style:normal}
+.reset{width:100%;margin-top:18px;font-family:var(--mono);font-size:10.5px;
+  letter-spacing:.11em;background:transparent;border:1px solid var(--edge-2);
+  color:var(--dim);padding:10px;border-radius:6px;cursor:pointer;
+  transition:all .16s ease}
+.reset:hover{color:var(--box);border-color:var(--box)}
+
+/* ================================================================
+   CONTENT
+   ================================================================ */
+.main{max-width:var(--read);margin:0 auto;padding:74px 24px 110px}
+.intro{font-size:19.5px;line-height:1.66;color:var(--bright);
+  border-left:3px solid var(--ball);padding-left:24px;margin-bottom:12px;
+  font-weight:450}
+
+h1.section{font-family:var(--display);font-size:clamp(29px,3.8vw,42px);
+  font-weight:700;letter-spacing:-.036em;color:var(--bright);
+  margin:104px 0 24px;padding-bottom:18px;border-bottom:1px solid var(--edge);
+  line-height:1.04;position:relative}
+h1.section::after{content:"";position:absolute;left:0;bottom:-1px;
+  width:0;height:1px;background:var(--box);transition:width 1.1s cubic-bezier(.2,.7,.3,1)}
+h1.section.seen::after{width:74px}
 h1.section .idx{font-family:var(--mono);font-size:11px;font-weight:700;
-  color:#12A55C;letter-spacing:.17em;display:block;margin-bottom:11px}
+  color:var(--box);letter-spacing:.18em;display:block;margin-bottom:12px}
 
-.label{font-family:var(--display);font-weight:600;font-size:20.5px;
-  color:var(--ink);margin:34px 0 8px;display:flex;align-items:center;gap:11px;
-  letter-spacing:-.012em}
+.label{font-family:var(--display);font-weight:600;font-size:21px;
+  color:var(--bright);margin:38px 0 9px;display:flex;align-items:center;gap:12px;
+  letter-spacing:-.015em}
 .label::before{content:"";width:7px;height:7px;background:var(--box);
   border-radius:1px;transform:rotate(45deg);flex:none;
-  box-shadow:0 0 0 3px rgba(41,224,126,.15)}
+  box-shadow:0 0 0 3px rgba(41,224,126,.14)}
 
-p{margin:15px 0;color:var(--body)}
-ul{margin:15px 0 15px 2px;list-style:none}
-ul li{position:relative;padding-left:24px;margin:8px 0;color:var(--body)}
-ul li::before{content:"";position:absolute;left:3px;top:.72em;width:7px;height:1.5px;
+p{margin:16px 0;color:var(--text)}
+ul{margin:16px 0 16px 2px;list-style:none}
+ul li{position:relative;padding-left:26px;margin:9px 0;color:var(--text)}
+ul li::before{content:"";position:absolute;left:3px;top:.78em;width:8px;height:1.5px;
   background:var(--box)}
-strong{color:var(--ink);font-weight:600}
+strong{color:var(--bright);font-weight:600}
+em{color:var(--text)}
 
-code.inl{font-family:var(--mono);font-size:.85em;background:#EDE9DF;
-  color:#B5301F;padding:2px 7px;border-radius:5px;white-space:nowrap}
-a.link{color:#0E8F4E;text-decoration:none;
-  border-bottom:1px solid rgba(41,224,126,.45);transition:all .16s ease}
-a.link:hover{color:#0B7540;border-bottom-color:#0B7540}
+code.inl{font-family:var(--mono);font-size:.85em;background:rgba(255,59,47,.1);
+  color:#FF8A7E;padding:2px 7px;border-radius:5px;white-space:nowrap;
+  border:1px solid rgba(255,59,47,.16)}
+a.link{color:var(--box);text-decoration:none;
+  border-bottom:1px solid rgba(41,224,126,.35);transition:all .16s ease}
+a.link:hover{border-bottom-color:var(--box);
+  background:rgba(41,224,126,.08)}
 
-/* ---------- CODE ---------- */
-.code-wrap{background:var(--panel);border-radius:11px;margin:24px 0;
+/* ---------------- CODE ---------------- */
+.code-wrap{background:var(--surface);border-radius:12px;margin:26px 0;
   overflow:hidden;border:1px solid var(--edge);
-  box-shadow:0 22px 48px -26px rgba(10,16,19,.6)}
-.code-bar{display:flex;align-items:center;gap:8px;padding:11px 15px;
-  background:#080D0F;border-bottom:1px solid var(--edge)}
+  box-shadow:0 26px 56px -30px rgba(0,0,0,.85);transition:border-color .25s ease}
+.code-wrap:hover{border-color:var(--edge-2)}
+.code-bar{display:flex;align-items:center;gap:8px;padding:12px 16px;
+  background:#070C0F;border-bottom:1px solid var(--edge)}
 .code-bar .dot{width:10px;height:10px;border-radius:50%;flex:none}
 .d1{background:#FF5F57}.d2{background:#FEBC2E}.d3{background:#28C840}
-.code-bar .fname{font-family:var(--mono);font-size:11.5px;color:#77868D;
-  margin-left:9px;flex:1}
-.copy{font-family:var(--mono);font-size:10px;letter-spacing:.1em;color:#77868D;
-  background:transparent;border:1px solid #23343B;border-radius:5px;
-  padding:5px 11px;cursor:pointer;transition:all .16s ease;flex:none}
+.code-bar .fname{font-family:var(--mono);font-size:11.5px;color:var(--dim);
+  margin-left:10px;flex:1}
+.copy{font-family:var(--mono);font-size:10px;letter-spacing:.11em;color:var(--dim);
+  background:transparent;border:1px solid var(--edge-2);border-radius:5px;
+  padding:5px 12px;cursor:pointer;transition:all .16s ease;flex:none}
 .copy:hover{color:var(--box);border-color:var(--box)}
 .copy.done{color:var(--void);background:var(--box);border-color:var(--box);font-weight:700}
-pre{margin:0;padding:21px 22px;overflow-x:auto;
-  scrollbar-width:thin;scrollbar-color:#233238 transparent}
+pre{margin:0;padding:22px 24px;overflow-x:auto;
+  scrollbar-width:thin;scrollbar-color:var(--edge-2) transparent}
 pre::-webkit-scrollbar{height:9px}
-pre::-webkit-scrollbar-thumb{background:#233238;border-radius:5px}
+pre::-webkit-scrollbar-thumb{background:var(--edge-2);border-radius:5px}
 pre::-webkit-scrollbar-track{background:transparent}
-pre code{font-family:var(--mono);font-size:12.8px;line-height:1.62;
-  color:#CBD6DA;white-space:pre}
+pre code{font-family:var(--mono);font-size:12.8px;line-height:1.66;
+  color:#C3D0D5;white-space:pre}
 
-/* ---------- TABLE ---------- */
-table{width:100%;border-collapse:collapse;margin:26px 0;font-size:15px}
-th{background:var(--panel);color:#E4EAE7;font-family:var(--mono);font-size:10.5px;
-  letter-spacing:.13em;text-transform:uppercase;text-align:left;padding:13px 15px;
-  font-weight:500}
-td{padding:13px 15px;border-bottom:1px solid var(--line);vertical-align:top;
-  color:var(--body)}
+/* ---------------- TABLE ---------------- */
+table{width:100%;border-collapse:collapse;margin:28px 0;font-size:15px}
+th{background:var(--surface);color:var(--bright);font-family:var(--mono);
+  font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;text-align:left;
+  padding:14px 16px;font-weight:500;border-bottom:1px solid var(--edge)}
+td{padding:14px 16px;border-bottom:1px solid var(--edge);vertical-align:top;
+  color:var(--text)}
 tr:last-child td{border-bottom:none}
-tbody tr{transition:background .14s ease}
-tbody tr:hover{background:#F1EEE5}
-td a{color:#0E8F4E;text-decoration:none;font-family:var(--mono);font-size:12.5px}
-td a:hover{color:#0B7540;text-decoration:underline}
+tbody tr{transition:background .16s ease}
+tbody tr:hover{background:var(--surface)}
+td a{color:var(--box);text-decoration:none;font-family:var(--mono);font-size:12.5px}
+td a:hover{text-decoration:underline}
 
-/* ---------- MEDIA ---------- */
-.video{position:relative;padding-bottom:56.25%;height:0;margin:24px 0;
-  border-radius:11px;overflow:hidden;border:1px solid var(--line);
-  box-shadow:0 20px 44px -26px rgba(14,20,24,.4)}
+/* ---------------- MEDIA ---------------- */
+.video{position:relative;padding-bottom:56.25%;height:0;margin:26px 0;
+  border-radius:12px;overflow:hidden;border:1px solid var(--edge);
+  box-shadow:0 26px 56px -30px rgba(0,0,0,.85)}
 .video iframe{position:absolute;top:0;left:0;width:100%;height:100%;border:0}
-.imgrow{display:flex;flex-wrap:wrap;gap:13px;margin:22px 0}
-.imgrow img{border-radius:9px;max-width:100%;border:1px solid var(--line)}
-.single-img{border-radius:11px;max-width:100%;border:1px solid var(--line);margin:22px 0}
-.headshot{width:100%;max-width:440px;height:auto;border-radius:12px;
-  border:2px solid var(--box);margin:26px 0;display:block;
-  box-shadow:0 22px 50px -28px rgba(14,20,24,.5)}
+.imgrow{display:flex;flex-wrap:wrap;gap:14px;margin:24px 0}
+.imgrow img{border-radius:10px;max-width:100%;border:1px solid var(--edge);
+  transition:transform .3s cubic-bezier(.2,.7,.3,1),border-color .3s ease}
+.imgrow img:hover{transform:translateY(-4px);border-color:var(--box)}
+.single-img{border-radius:12px;max-width:100%;border:1px solid var(--edge);margin:24px 0}
+.headshot{width:100%;max-width:440px;height:auto;border-radius:13px;
+  border:2px solid var(--box);margin:28px 0;display:block;
+  box-shadow:0 28px 62px -32px rgba(0,0,0,.9)}
 
-/* ---------- FOOTER ---------- */
-.footer{border-top:1px solid var(--line);margin-top:96px;padding-top:32px;
-  font-family:var(--mono);font-size:12.5px;color:var(--dim);
-  display:flex;flex-wrap:wrap;gap:12px;justify-content:space-between;
+/* ---------------- FOOTER ---------------- */
+.footer{border-top:1px solid var(--edge);margin-top:104px;padding-top:34px;
+  font-family:var(--mono);font-size:12.5px;color:var(--faint);
+  display:flex;flex-wrap:wrap;gap:14px;justify-content:space-between;
   align-items:baseline}
-.footer .sig{color:var(--ink);font-weight:500}
-.footer .top{color:var(--dim);text-decoration:none;transition:color .16s ease}
-.footer .top:hover{color:#0E8F4E}
+.footer .sig{color:var(--bright);font-weight:500}
+.footer .top{color:var(--faint);text-decoration:none;transition:color .16s ease}
+.footer .top:hover{color:var(--box)}
 
-/* ---------- REVEAL + A11Y ---------- */
-.rise{opacity:0;transform:translateY(20px);
-  transition:opacity .62s cubic-bezier(.2,.6,.3,1),transform .62s cubic-bezier(.2,.6,.3,1)}
+/* ---------------- REVEAL + A11Y ---------------- */
+.rise{opacity:0;transform:translateY(22px);
+  transition:opacity .66s cubic-bezier(.2,.6,.3,1),transform .66s cubic-bezier(.2,.6,.3,1)}
 .rise.seen{opacity:1;transform:none}
-a:focus-visible,button:focus-visible{outline:2px solid var(--box);
+a:focus-visible,button:focus-visible,input:focus-visible{outline:2px solid var(--box);
   outline-offset:3px;border-radius:4px}
 @media (prefers-reduced-motion:reduce){
   *{animation-duration:.01ms !important;animation-iteration-count:1 !important;
     transition-duration:.01ms !important;scroll-behavior:auto !important}
-  .rise{opacity:1;transform:none}
+  .rise,.up{opacity:1;transform:none}
+  .hero::after{display:none}
+  #boot{display:none}
 }
 </style>
 </head>
 <body>
+
+<!-- ============ BOOT ============ -->
+<div id="boot">
+  <div class="boot-in">
+    <div class="l" data-l><i>[ 0.00 ]</i> gpio interface <b>READY</b></div>
+    <div class="l" data-l><i>[ 0.34 ]</i> l9110 driver <b>READY</b></div>
+    <div class="l" data-l><i>[ 0.61 ]</i> hc-sr04 ×3 <b>READY</b></div>
+    <div class="l" data-l><i>[ 0.88 ]</i> servo pan <b>90°</b></div>
+    <div class="l" data-l><i>[ 1.12 ]</i> picamera2 <b>480×360</b></div>
+    <div class="l" data-l><i>[ 1.30 ]</i> opencv <b>ONLINE</b></div>
+    <div class="boot-rail"><span id="bootRail"></span></div>
+  </div>
+</div>
+
+<!-- ============ RETICLE ============ -->
+<div id="retic"><i></i><i></i><i></i><i></i></div>
 
 <div class="progress" id="progress"></div>
 
@@ -265,6 +404,7 @@ a:focus-visible,button:focus-visible{outline:2px solid var(--box);
   <div class="stick-in">
     <div class="stick-mark"><span class="rec-dot"></span> CV_ONLINE</div>
     <div class="stick-links">
+      <a href="#lab">Try it</a>
       <a href="#mods">Modifications</a>
       <a href="#final">Final</a>
       <a href="#m2">Milestone 2</a>
@@ -281,34 +421,36 @@ a:focus-visible,button:focus-visible{outline:2px solid var(--box);
   <div class="hero-in">
 
     <div class="hero-copy">
-      <div class="eyebrow"><span class="rec-dot"></span> Computer Vision · Raspberry Pi 4</div>
-      <h1 class="title">Ball Tracking<br>Robot with <span class="cv">OpenCV</span></h1>
-      <p class="lede">A robot that finds a red ball in a camera frame, pans its
-        camera to keep the ball centered, and drives toward it while reading
-        distance off three ultrasonic sensors.</p>
-      <div class="byline"><b>Vaideesh K</b> · Cupertino High School · Electrical Engineering</div>
-      <div class="cta">
-        <a class="go" href="#final">See the final build</a>
-        <a class="ghost" href="#mods">Read the modifications</a>
+      <div class="eyebrow up d1"><span class="rec-dot"></span> Computer Vision · Raspberry Pi 4</div>
+      <h1 class="title up d2">Ball Tracking<br>Robot with <span class="cv">OpenCV</span></h1>
+      <p class="lede up d3">A robot that finds a red ball in a camera frame, pans its
+        camera to keep the ball centred, and drives toward it while reading distance
+        off three ultrasonic sensors.</p>
+      <div class="byline up d4"><b>Vaideesh K</b> · Cupertino High School · Electrical Engineering</div>
+      <div class="cta up d5">
+        <a class="go" href="#lab" data-lock>Try the detector</a>
+        <a class="ghost" href="#final" data-lock>See the final build</a>
       </div>
     </div>
 
-    <!-- SIGNATURE: a working tracker. same pipeline as the robot's. -->
-    <div class="scope">
-      <div class="scope-bar">
-        <span class="live">● REC</span>
-        <span>480 × 360</span>
-        <span class="spacer"></span>
-        <button class="viewbtn on" id="btnCam" type="button">CAMERA</button>
-        <button class="viewbtn" id="btnMask" type="button">HSV MASK</button>
+    <div class="up d3">
+      <div class="scope">
+        <div class="scope-bar">
+          <span class="live">● REC</span>
+          <span>480 × 360</span>
+          <span class="spacer"></span>
+          <button class="viewbtn on" id="btnCam" type="button" data-lock>CAMERA</button>
+          <button class="viewbtn" id="btnMask" type="button" data-lock>HSV MASK</button>
+        </div>
+        <canvas id="scopeCanvas" width="640" height="430"></canvas>
+        <div class="scope-feet">
+          <div class="foot"><div class="k">STATUS</div><div class="v" id="fStatus">LOCKED</div></div>
+          <div class="foot"><div class="k">ERROR X</div><div class="v" id="fErr">0 px</div></div>
+          <div class="foot"><div class="k">RADIUS</div><div class="v" id="fRad">0 px</div></div>
+          <div class="foot"><div class="k">SERVO</div><div class="v" id="fServo">90°</div></div>
+        </div>
       </div>
-      <canvas id="scopeCanvas" width="640" height="440"></canvas>
-      <div class="scope-feet">
-        <div class="foot"><div class="k">STATUS</div><div class="v" id="fStatus">LOCKED</div></div>
-        <div class="foot"><div class="k">ERROR X</div><div class="v" id="fErr">0 px</div></div>
-        <div class="foot"><div class="k">RADIUS</div><div class="v" id="fRad">0 px</div></div>
-        <div class="foot"><div class="k">SERVO</div><div class="v" id="fServo">90°</div></div>
-      </div>
+      <div class="scope-hint">move your cursor near the ball to push it</div>
     </div>
 
   </div>
@@ -316,10 +458,69 @@ a:focus-visible,button:focus-visible{outline:2px solid var(--box);
 
 <section class="specs">
   <div class="specs-in">
-    <div class="spec"><div class="n">3</div><div class="l">Milestones</div></div>
-    <div class="spec"><div class="n">3</div><div class="l">Ultrasonic sensors</div></div>
-    <div class="spec"><div class="n">140<small>°</small></div><div class="l">Camera pan range</div></div>
-    <div class="spec"><div class="n">30<small>fps</small></div><div class="l">Vision loop</div></div>
+    <div class="spec"><div class="n" data-count="3">0</div><div class="l">Milestones</div></div>
+    <div class="spec"><div class="n" data-count="3">0</div><div class="l">Ultrasonic sensors</div></div>
+    <div class="spec"><div class="n" data-count="140">0</div><div class="l">Degree pan range</div></div>
+    <div class="spec"><div class="n" data-count="40">0</div><div class="l">Wired connections</div></div>
+  </div>
+</section>
+
+<!-- ============ THE LAB ============ -->
+<section class="lab" id="lab">
+  <div class="lab-in">
+    <div class="lab-head">
+      <div class="kicker">Interactive · the hard part</div>
+      <h2>The robot doesn't see a ball.<br>It sees a range of colour.</h2>
+      <p>Every frame gets converted to HSV and filtered down to a black-and-white
+        mask. Whatever survives the filter is what the robot chases. Getting these
+        three numbers wrong is why it spent an afternoon following my face instead
+        of the ball — skin is dull red, and the saturation floor was too low to
+        tell them apart. Drag the sliders and watch it happen.</p>
+    </div>
+
+    <div class="lab-grid">
+      <div class="lab-stage">
+        <div class="scope-bar">
+          <span class="live">● MASK OUTPUT</span>
+          <span class="spacer"></span>
+          <span id="labVerdict">2 objects pass</span>
+        </div>
+        <canvas id="labCanvas" width="760" height="380"></canvas>
+      </div>
+
+      <div class="panel">
+        <h3>HSV Threshold</h3>
+
+        <div class="knob">
+          <div class="knob-top"><span>Hue window</span><b id="vHue">±10</b></div>
+          <input type="range" id="sHue" min="4" max="60" value="10">
+        </div>
+
+        <div class="knob">
+          <div class="knob-top"><span>Saturation floor</span><b id="vSat">170</b></div>
+          <input type="range" id="sSat" min="40" max="240" value="170">
+        </div>
+
+        <div class="knob">
+          <div class="knob-top"><span>Value floor</span><b id="vVal">80</b></div>
+          <input type="range" id="sVal" min="20" max="200" value="80">
+        </div>
+
+        <div class="knob">
+          <div class="knob-top"><span>Min roundness</span><b id="vFill">0.40</b></div>
+          <input type="range" id="sFill" min="0" max="90" value="40">
+        </div>
+
+        <div class="verdict">
+          <div><em>Red ball</em><span id="rBall" class="g">TRACKED</span></div>
+          <div><em>Skin tone</em><span id="rFace" class="g">rejected</span></div>
+          <div><em>Red mug</em><span id="rMug" class="g">rejected</span></div>
+          <div><em>Orange</em><span id="rOrange" class="g">rejected</span></div>
+        </div>
+
+        <button class="reset" id="resetLab" type="button" data-lock>RESET TO MY VALUES</button>
+      </div>
+    </div>
   </div>
 </section>
 
@@ -1165,93 +1366,126 @@ except KeyboardInterrupt:
   var reduce = window.matchMedia &&
     window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-  /* =====================================================================
-     THE TRACKER
-     Same pipeline the robot runs: find the ball, measure how far it is
-     from the centre of the frame, pan the camera to close that error.
-     ===================================================================== */
-  var cv = document.getElementById('scopeCanvas');
-  if (cv && cv.getContext) {
+  /* ==================================================================
+     BOOT — lines tick in, rail fills, then the page arrives
+     ================================================================== */
+  (function boot() {
+    var el = document.getElementById('boot');
+    var rail = document.getElementById('bootRail');
+    if (!el || reduce) {
+      if (el) el.classList.add('gone');
+      document.body.classList.add('ready');
+      return;
+    }
+    var lines = document.querySelectorAll('[data-l]');
+    lines.forEach(function (l, i) {
+      setTimeout(function () { l.classList.add('up'); }, 90 + i * 155);
+    });
+    setTimeout(function () { rail.style.width = '100%'; }, 120);
+    setTimeout(function () {
+      el.classList.add('gone');
+      document.body.classList.add('ready');
+    }, 1500);
+  })();
+
+  /* ==================================================================
+     RETICLE CURSOR — a detection box that follows the pointer
+     ================================================================== */
+  (function reticle() {
+    if (reduce) return;
+    if (!window.matchMedia || !window.matchMedia('(hover:hover)').matches) return;
+    var r = document.getElementById('retic');
+    if (!r) return;
+    var tx = 0, ty = 0, x = 0, y = 0, on = false;
+
+    window.addEventListener('pointermove', function (e) {
+      tx = e.clientX; ty = e.clientY;
+      if (!on) { on = true; x = tx; y = ty; r.classList.add('live'); }
+      var hit = e.target.closest(
+        'a,button,input,.code-wrap,.imgrow img,.scope,.lab-stage,[data-lock]');
+      r.classList.toggle('lock', !!hit);
+    });
+    window.addEventListener('pointerleave', function () {
+      on = false; r.classList.remove('live');
+    });
+
+    (function loop() {
+      x += (tx - x) * 0.22;
+      y += (ty - y) * 0.22;
+      var s = r.classList.contains('lock') ? 22 : 13;
+      r.style.transform = 'translate(' + (x - s) + 'px,' + (y - s) + 'px)';
+      requestAnimationFrame(loop);
+    })();
+  })();
+
+  /* ==================================================================
+     HERO TRACKER — the robot's loop, running in the browser
+     ================================================================== */
+  (function tracker() {
+    var cv = document.getElementById('scopeCanvas');
+    if (!cv || !cv.getContext) return;
     var g = cv.getContext('2d');
-    var W = cv.width, H = cv.height;
-    var CX = W / 2;
-    var DEAD = 62;              // deadzone in px, same idea as the robot's
+    var W = cv.width, H = cv.height, CX = W / 2, DEAD = 62;
     var maskView = false;
 
-    // the ball
-    var ball = { x: W * 0.30, y: H * 0.42, vx: 1.9, vy: 1.25, r: 40 };
-    // the tracker's smoothed estimate (it lags slightly, like the real one)
-    var est = { x: ball.x, y: ball.y, r: ball.r, has: false };
-    var servo = 90;
-    var t = 0;
+    var ball = { x: W * 0.3, y: H * 0.44, vx: 1.9, vy: 1.2, r: 38 };
+    var est = { x: ball.x, y: ball.y, r: ball.r };
+    var servo = 90, t = 0, raf = null;
 
-    var elStatus = document.getElementById('fStatus');
-    var elErr = document.getElementById('fErr');
-    var elRad = document.getElementById('fRad');
-    var elServo = document.getElementById('fServo');
+    var elStatus = document.getElementById('fStatus'),
+        elErr = document.getElementById('fErr'),
+        elRad = document.getElementById('fRad'),
+        elServo = document.getElementById('fServo');
 
-    var bCam = document.getElementById('btnCam');
-    var bMask = document.getElementById('btnMask');
+    var bCam = document.getElementById('btnCam'),
+        bMask = document.getElementById('btnMask');
     function setView(m) {
       maskView = m;
       bCam.classList.toggle('on', !m);
       bMask.classList.toggle('on', m);
     }
-    if (bCam) bCam.addEventListener('click', function () { setView(false); });
-    if (bMask) bMask.addEventListener('click', function () { setView(true); });
+    bCam.addEventListener('click', function () { setView(false); });
+    bMask.addEventListener('click', function () { setView(true); });
 
-    // let people push the ball around
     cv.addEventListener('pointermove', function (e) {
       var b = cv.getBoundingClientRect();
       var mx = (e.clientX - b.left) * (W / b.width);
       var my = (e.clientY - b.top) * (H / b.height);
       var dx = ball.x - mx, dy = ball.y - my;
       var d = Math.sqrt(dx * dx + dy * dy);
-      if (d < 130 && d > 0.1) {
-        ball.vx += (dx / d) * 0.55;
-        ball.vy += (dy / d) * 0.55;
+      if (d < 135 && d > 0.1) {
+        ball.vx += (dx / d) * 0.6;
+        ball.vy += (dy / d) * 0.6;
       }
     });
 
     function step() {
       t += 0.016;
-
-      // ---- move the ball ----
-      ball.x += ball.vx;
-      ball.y += ball.vy;
-      // a little wander so it never looks like a screensaver loop
+      ball.x += ball.vx; ball.y += ball.vy;
       ball.vx += Math.sin(t * 0.7) * 0.016;
       ball.vy += Math.cos(t * 0.53) * 0.013;
 
-      var pad = ball.r + 10;
+      var pad = ball.r + 12;
       if (ball.x < pad) { ball.x = pad; ball.vx = Math.abs(ball.vx); }
       if (ball.x > W - pad) { ball.x = W - pad; ball.vx = -Math.abs(ball.vx); }
       if (ball.y < pad) { ball.y = pad; ball.vy = Math.abs(ball.vy); }
-      if (ball.y > H - pad) { ball.y = H - pad; ball.vy = -Math.abs(ball.vy); }
+      if (ball.y > H - pad - 22) { ball.y = H - pad - 22; ball.vy = -Math.abs(ball.vy); }
 
-      // gentle speed clamp
       var sp = Math.sqrt(ball.vx * ball.vx + ball.vy * ball.vy);
-      var cap = 2.9;
-      if (sp > cap) { ball.vx *= cap / sp; ball.vy *= cap / sp; }
+      if (sp > 3.0) { ball.vx *= 3.0 / sp; ball.vy *= 3.0 / sp; }
       if (sp < 1.0) { ball.vx *= 1.03; ball.vy *= 1.03; }
+      ball.r = 33 + Math.sin(t * 0.42) * 8;
 
-      // ball gets bigger/smaller as if moving toward and away
-      ball.r = 34 + Math.sin(t * 0.42) * 9;
-
-      // ---- the tracker's estimate: 0.6 old / 0.4 new, like the robot ----
+      /* the same 0.6 / 0.4 smoothing the robot runs */
       est.x = est.x * 0.6 + ball.x * 0.4;
       est.y = est.y * 0.6 + ball.y * 0.4;
       est.r = est.r * 0.6 + ball.r * 0.4;
-      est.has = true;
 
-      // ---- pan the camera to close the error ----
       var err = est.x - CX;
       if (Math.abs(err) > DEAD) {
-        var stepDeg = 0.02 * err;
-        stepDeg = Math.max(-1.6, Math.min(1.6, stepDeg));
-        servo = Math.max(20, Math.min(160, servo + stepDeg));
+        var d = Math.max(-1.6, Math.min(1.6, 0.02 * err));
+        servo = Math.max(20, Math.min(160, servo + d));
       }
-
       draw(err);
       raf = requestAnimationFrame(step);
     }
@@ -1259,16 +1493,11 @@ except KeyboardInterrupt:
     function draw(err) {
       var locked = Math.abs(err) <= DEAD;
 
-      // ---------- background ----------
       if (maskView) {
-        g.fillStyle = '#000';
-        g.fillRect(0, 0, W, H);
+        g.fillStyle = '#000'; g.fillRect(0, 0, W, H);
       } else {
-        g.fillStyle = '#050809';
-        g.fillRect(0, 0, W, H);
-        // sensor grid
-        g.strokeStyle = 'rgba(41,224,126,.05)';
-        g.lineWidth = 1;
+        g.fillStyle = '#04070A'; g.fillRect(0, 0, W, H);
+        g.strokeStyle = 'rgba(41,224,126,.05)'; g.lineWidth = 1;
         for (var x = 0; x <= W; x += 40) {
           g.beginPath(); g.moveTo(x + .5, 0); g.lineTo(x + .5, H); g.stroke();
         }
@@ -1277,62 +1506,45 @@ except KeyboardInterrupt:
         }
       }
 
-      // ---------- the ball ----------
       if (maskView) {
-        // what the HSV filter actually passes: a white blob, with the
-        // glare holes and stray specks that made the real build tricky
         g.fillStyle = '#fff';
         g.beginPath(); g.arc(ball.x, ball.y, ball.r, 0, 6.2832); g.fill();
         g.fillStyle = '#000';
         g.beginPath();
-        g.arc(ball.x - ball.r * .3, ball.y - ball.r * .34, ball.r * .19, 0, 6.2832);
-        g.fill();
+        g.arc(ball.x - ball.r * .3, ball.y - ball.r * .34, ball.r * .19, 0, 6.2832); g.fill();
         g.beginPath();
-        g.arc(ball.x + ball.r * .12, ball.y - ball.r * .46, ball.r * .1, 0, 6.2832);
-        g.fill();
+        g.arc(ball.x + ball.r * .12, ball.y - ball.r * .46, ball.r * .1, 0, 6.2832); g.fill();
         g.fillStyle = '#fff';
-        g.beginPath();
-        g.arc(ball.x + ball.r * 1.7, ball.y - ball.r * 1.25, 4, 0, 6.2832);
-        g.fill();
-        g.beginPath();
-        g.arc(ball.x - ball.r * 1.9, ball.y + ball.r * 1.1, 2.6, 0, 6.2832);
-        g.fill();
+        g.beginPath(); g.arc(ball.x + ball.r * 1.7, ball.y - ball.r * 1.2, 4, 0, 6.2832); g.fill();
+        g.beginPath(); g.arc(ball.x - ball.r * 1.9, ball.y + ball.r * 1.1, 2.6, 0, 6.2832); g.fill();
       } else {
-        var grd = g.createRadialGradient(
+        var gr = g.createRadialGradient(
           ball.x - ball.r * .34, ball.y - ball.r * .38, ball.r * .1,
           ball.x, ball.y, ball.r);
-        grd.addColorStop(0, '#FF8A7E');
-        grd.addColorStop(.45, '#FF3B2F');
-        grd.addColorStop(1, '#B21B12');
-        g.fillStyle = grd;
+        gr.addColorStop(0, '#FF8A7E');
+        gr.addColorStop(.45, '#FF3B2F');
+        gr.addColorStop(1, '#B21B12');
+        g.fillStyle = gr;
         g.beginPath(); g.arc(ball.x, ball.y, ball.r, 0, 6.2832); g.fill();
-        // specular highlight - the glare that breaks the mask
         g.fillStyle = 'rgba(255,255,255,.5)';
         g.beginPath();
-        g.arc(ball.x - ball.r * .33, ball.y - ball.r * .36, ball.r * .17, 0, 6.2832);
-        g.fill();
+        g.arc(ball.x - ball.r * .33, ball.y - ball.r * .36, ball.r * .17, 0, 6.2832); g.fill();
       }
 
-      // ---------- deadzone rails ----------
-      g.strokeStyle = 'rgba(120,140,150,.28)';
+      g.strokeStyle = 'rgba(120,140,150,.26)';
       g.setLineDash([5, 6]); g.lineWidth = 1;
-      g.beginPath(); g.moveTo(CX - DEAD, 0); g.lineTo(CX - DEAD, H); g.stroke();
-      g.beginPath(); g.moveTo(CX + DEAD, 0); g.lineTo(CX + DEAD, H); g.stroke();
+      g.beginPath(); g.moveTo(CX - DEAD, 0); g.lineTo(CX - DEAD, H - 30); g.stroke();
+      g.beginPath(); g.moveTo(CX + DEAD, 0); g.lineTo(CX + DEAD, H - 30); g.stroke();
       g.setLineDash([]);
 
-      // ---------- centre crosshair ----------
       g.strokeStyle = 'rgba(41,224,126,.5)'; g.lineWidth = 1;
       g.beginPath(); g.moveTo(CX, H / 2 - 13); g.lineTo(CX, H / 2 + 13); g.stroke();
       g.beginPath(); g.moveTo(CX - 13, H / 2); g.lineTo(CX + 13, H / 2); g.stroke();
 
-      // ---------- the detection box ----------
-      var col = locked ? '#29E07E' : '#F0B429';
-      var bx = est.x - est.r - 12, by = est.y - est.r - 12;
-      var bw = (est.r + 12) * 2, bh = (est.r + 12) * 2;
-      var c = 17;
-
+      var col = locked ? '#29E07E' : '#F5B93B';
+      var bx = est.x - est.r - 13, by = est.y - est.r - 13;
+      var bw = (est.r + 13) * 2, bh = (est.r + 13) * 2, c = 17;
       g.strokeStyle = col; g.lineWidth = 2.4; g.lineCap = 'square';
-      // four corner brackets, not a full rectangle
       g.beginPath();
       g.moveTo(bx, by + c); g.lineTo(bx, by); g.lineTo(bx + c, by);
       g.moveTo(bx + bw - c, by); g.lineTo(bx + bw, by); g.lineTo(bx + bw, by + c);
@@ -1340,67 +1552,243 @@ except KeyboardInterrupt:
       g.moveTo(bx + c, by + bh); g.lineTo(bx, by + bh); g.lineTo(bx, by + bh - c);
       g.stroke();
 
-      // centroid
       g.fillStyle = col;
       g.beginPath(); g.arc(est.x, est.y, 3, 0, 6.2832); g.fill();
 
-      // the error line: centre of frame -> centre of ball
-      g.strokeStyle = locked ? 'rgba(41,224,126,.45)' : 'rgba(240,180,41,.6)';
+      g.strokeStyle = locked ? 'rgba(41,224,126,.45)' : 'rgba(245,185,59,.65)';
       g.lineWidth = 1.4; g.setLineDash([3, 4]);
       g.beginPath(); g.moveTo(CX, est.y); g.lineTo(est.x, est.y); g.stroke();
       g.setLineDash([]);
 
-      // label above the box
       var tag = locked ? 'BALL · LOCKED' : 'BALL · TRACKING';
       g.font = '600 11px JetBrains Mono, monospace';
-      var tw = g.measureText(tag).width;
       g.fillStyle = col;
-      g.fillRect(bx, by - 21, tw + 14, 16);
-      g.fillStyle = '#050809';
+      g.fillRect(bx, by - 21, g.measureText(tag).width + 14, 16);
+      g.fillStyle = '#04070A';
       g.fillText(tag, bx + 7, by - 9);
 
-      // ---------- servo bar along the bottom ----------
       var pct = (servo - 20) / 140;
       g.fillStyle = 'rgba(255,255,255,.07)';
-      g.fillRect(24, H - 20, W - 48, 3);
+      g.fillRect(26, H - 18, W - 52, 3);
       g.fillStyle = '#29E07E';
-      g.fillRect(24 + (W - 48) * pct - 13, H - 23, 26, 9);
+      g.fillRect(26 + (W - 52) * pct - 13, H - 21, 26, 9);
       g.font = '9px JetBrains Mono, monospace';
-      g.fillStyle = '#4E5C63';
-      g.fillText('20°', 24, H - 28);
+      g.fillStyle = '#546268';
+      g.fillText('SERVO 20°', 26, H - 26);
       g.textAlign = 'right';
-      g.fillText('160°', W - 24, H - 28);
+      g.fillText('160°', W - 26, H - 26);
       g.textAlign = 'left';
 
-      // ---------- telemetry ----------
-      if (elStatus) {
-        elStatus.textContent = locked ? 'LOCKED' : 'TRACKING';
-        elStatus.className = locked ? 'v' : 'v warn';
-        elErr.textContent = Math.round(err) + ' px';
-        elRad.textContent = Math.round(est.r) + ' px';
-        elServo.textContent = Math.round(servo) + '°';
+      elStatus.textContent = locked ? 'LOCKED' : 'TRACKING';
+      elStatus.className = locked ? 'v' : 'v warn';
+      elErr.textContent = Math.round(err) + ' px';
+      elRad.textContent = Math.round(est.r) + ' px';
+      elServo.textContent = Math.round(servo) + '\u00B0';
+    }
+
+    if (reduce) { draw(est.x - CX); return; }
+    if ('IntersectionObserver' in window) {
+      new IntersectionObserver(function (en) {
+        en.forEach(function (e) {
+          if (e.isIntersecting && !raf) raf = requestAnimationFrame(step);
+          else if (!e.isIntersecting && raf) { cancelAnimationFrame(raf); raf = null; }
+        });
+      }, { threshold: 0 }).observe(cv);
+    } else { raf = requestAnimationFrame(step); }
+  })();
+
+  /* ==================================================================
+     THE LAB — real HSV thresholding, live
+     Four objects with real-ish HSV values. Change the filter, watch
+     which ones survive it.
+     ================================================================== */
+  (function lab() {
+    var cv = document.getElementById('labCanvas');
+    if (!cv || !cv.getContext) return;
+    var g = cv.getContext('2d');
+    var W = cv.width, H = cv.height;
+
+    /* h/s/v are approximate OpenCV values. fill = how round the blob is. */
+    var objs = [
+      { id: 'rBall',  name: 'red ball',  h: 3,   s: 232, v: 205, fill: .93,
+        x: 150, y: 178, r: 62, css: '#FF3B2F', shape: 'circle' },
+      { id: 'rFace',  name: 'skin tone', h: 8,   s: 118, v: 196, fill: .74,
+        x: 330, y: 150, r: 52, css: '#D89A78', shape: 'face' },
+      { id: 'rMug',   name: 'red mug',   h: 2,   s: 214, v: 168, fill: .58,
+        x: 500, y: 200, r: 48, css: '#D6342A', shape: 'mug' },
+      { id: 'rOrange',name: 'orange',    h: 16,  s: 236, v: 226, fill: .90,
+        x: 648, y: 150, r: 42, css: '#FF9426', shape: 'circle' }
+    ];
+
+    var cfg = { hue: 10, sat: 170, val: 80, fill: 40 };
+    var DEF = { hue: 10, sat: 170, val: 80, fill: 40 };
+
+    var el = {
+      hue: document.getElementById('sHue'), sat: document.getElementById('sSat'),
+      val: document.getElementById('sVal'), fill: document.getElementById('sFill'),
+      vHue: document.getElementById('vHue'), vSat: document.getElementById('vSat'),
+      vVal: document.getElementById('vVal'), vFill: document.getElementById('vFill'),
+      verdict: document.getElementById('labVerdict')
+    };
+
+    /* red wraps the hue circle at 0/180, so measure the shorter way round */
+    function hueGap(h) {
+      var d = Math.abs(h - 0);
+      return Math.min(d, 180 - d);
+    }
+
+    function passes(o) {
+      var colour = hueGap(o.h) <= cfg.hue && o.s >= cfg.sat && o.v >= cfg.val;
+      var round = o.fill >= cfg.fill / 100;
+      return { colour: colour, round: round, ok: colour && round };
+    }
+
+    function paint() {
+      g.fillStyle = '#000'; g.fillRect(0, 0, W, H);
+
+      var passing = 0;
+
+      objs.forEach(function (o) {
+        var p = passes(o);
+        if (p.ok) passing++;
+
+        /* left half of each object: what the camera sees.
+           the mask beneath it: what survives the filter. */
+        if (p.colour) {
+          g.fillStyle = '#fff';
+          blob(o, false);
+          /* glare hole, same thing that broke the real roundness maths */
+          g.fillStyle = '#000';
+          g.beginPath();
+          g.arc(o.x - o.r * .3, o.y - o.r * .32, o.r * .16, 0, 6.2832);
+          g.fill();
+        } else {
+          /* filtered out - draw a faint ghost so you can see what you lost */
+          g.fillStyle = 'rgba(255,255,255,.055)';
+          blob(o, false);
+        }
+
+        /* verdict bracket */
+        var col = p.ok ? '#29E07E' : (p.colour ? '#F5B93B' : 'rgba(120,135,142,.4)');
+        var bx = o.x - o.r - 14, by = o.y - o.r - 14;
+        var bw = (o.r + 14) * 2, bh = (o.r + 14) * 2, c = 14;
+        g.strokeStyle = col; g.lineWidth = 2; g.lineCap = 'square';
+        g.beginPath();
+        g.moveTo(bx, by + c); g.lineTo(bx, by); g.lineTo(bx + c, by);
+        g.moveTo(bx + bw - c, by); g.lineTo(bx + bw, by); g.lineTo(bx + bw, by + c);
+        g.moveTo(bx + bw, by + bh - c); g.lineTo(bx + bw, by + bh); g.lineTo(bx + bw - c, by + bh);
+        g.moveTo(bx + c, by + bh); g.lineTo(bx, by + bh); g.lineTo(bx, by + bh - c);
+        g.stroke();
+
+        /* label */
+        var msg = p.ok ? 'TRACKED'
+                : p.colour ? 'not round enough'
+                : 'filtered out';
+        g.font = '500 10.5px JetBrains Mono, monospace';
+        g.fillStyle = col;
+        g.fillText(o.name.toUpperCase(), bx, by - 20);
+        g.fillStyle = p.ok ? '#29E07E' : 'rgba(140,155,162,.75)';
+        g.font = '10px JetBrains Mono, monospace';
+        g.fillText(msg, bx, by - 7);
+
+        /* hsv readout under each */
+        g.fillStyle = 'rgba(120,135,142,.5)';
+        g.font = '9.5px JetBrains Mono, monospace';
+        g.fillText('H' + o.h + ' S' + o.s + ' V' + o.v + '  fill ' + o.fill.toFixed(2),
+          bx, by + bh + 16);
+
+        /* update the side panel */
+        var out = document.getElementById(o.id);
+        if (out) {
+          out.textContent = p.ok ? 'TRACKED' : (p.colour ? 'passes colour' : 'rejected');
+          out.className = p.ok ? (o.id === 'rBall' ? 'g' : 'r')
+                               : (o.id === 'rBall' ? 'r' : 'g');
+        }
+      });
+
+      if (el.verdict) {
+        el.verdict.textContent = passing === 1 ? '1 object passes'
+          : passing + ' objects pass';
+        el.verdict.style.color = passing === 1 ? '#29E07E' : '#F5B93B';
       }
     }
 
-    var raf;
-    if (reduce) {
-      draw(est.x - CX);          // one static frame, no motion
-    } else {
-      // only animate while the hero is actually on screen
-      if ('IntersectionObserver' in window) {
-        new IntersectionObserver(function (en) {
-          en.forEach(function (e) {
-            if (e.isIntersecting && !raf) raf = requestAnimationFrame(step);
-            else if (!e.isIntersecting && raf) { cancelAnimationFrame(raf); raf = null; }
-          });
-        }, { threshold: 0 }).observe(cv);
+    function blob(o, outline) {
+      g.beginPath();
+      if (o.shape === 'circle') {
+        g.arc(o.x, o.y, o.r, 0, 6.2832);
+      } else if (o.shape === 'face') {
+        g.ellipse(o.x, o.y, o.r * .78, o.r, 0, 0, 6.2832);
       } else {
-        raf = requestAnimationFrame(step);
+        /* mug: a rounded body with a handle - deliberately not round */
+        g.moveTo(o.x - o.r * .7, o.y - o.r);
+        g.lineTo(o.x + o.r * .55, o.y - o.r);
+        g.lineTo(o.x + o.r * .55, o.y + o.r);
+        g.lineTo(o.x - o.r * .7, o.y + o.r);
+        g.closePath();
+        g.moveTo(o.x + o.r * .55, o.y - o.r * .4);
+        g.arc(o.x + o.r * .62, o.y, o.r * .42, -1.2, 1.2);
       }
+      g.fill();
     }
-  }
 
-  /* ================= SCROLL PROGRESS + STICKY NAV ================= */
+    function sync() {
+      cfg.hue = +el.hue.value; cfg.sat = +el.sat.value;
+      cfg.val = +el.val.value; cfg.fill = +el.fill.value;
+      el.vHue.textContent = '\u00B1' + cfg.hue;
+      el.vSat.textContent = cfg.sat;
+      el.vVal.textContent = cfg.val;
+      el.vFill.textContent = (cfg.fill / 100).toFixed(2);
+      paint();
+    }
+
+    ['hue', 'sat', 'val', 'fill'].forEach(function (k) {
+      el[k].addEventListener('input', sync);
+    });
+
+    var rst = document.getElementById('resetLab');
+    if (rst) rst.addEventListener('click', function () {
+      el.hue.value = DEF.hue; el.sat.value = DEF.sat;
+      el.val.value = DEF.val; el.fill.value = DEF.fill;
+      sync();
+    });
+
+    sync();
+  })();
+
+  /* ==================================================================
+     COUNTERS
+     ================================================================== */
+  (function counters() {
+    var nums = document.querySelectorAll('[data-count]');
+    if (!nums.length) return;
+    if (reduce || !('IntersectionObserver' in window)) {
+      Array.prototype.forEach.call(nums, function (n) {
+        n.textContent = n.getAttribute('data-count');
+      });
+      return;
+    }
+    var io = new IntersectionObserver(function (en) {
+      en.forEach(function (e) {
+        if (!e.isIntersecting) return;
+        var n = e.target, end = +n.getAttribute('data-count'), s = null;
+        function tick(ts) {
+          if (!s) s = ts;
+          var p = Math.min((ts - s) / 1100, 1);
+          var eased = 1 - Math.pow(1 - p, 3);
+          n.textContent = Math.round(end * eased);
+          if (p < 1) requestAnimationFrame(tick);
+        }
+        requestAnimationFrame(tick);
+        io.unobserve(n);
+      });
+    }, { threshold: .5 });
+    Array.prototype.forEach.call(nums, function (n) { io.observe(n); });
+  })();
+
+  /* ==================================================================
+     PROGRESS + STICKY NAV + ACTIVE SECTION + REVEALS
+     ================================================================== */
   var bar = document.getElementById('progress');
   var stick = document.getElementById('stick');
   var hero = document.querySelector('.hero');
@@ -1413,15 +1801,14 @@ except KeyboardInterrupt:
   window.addEventListener('scroll', onScroll, { passive: true });
   onScroll();
 
-  /* ================= ACTIVE SECTION ================= */
   var links = Array.prototype.slice.call(document.querySelectorAll('.stick-links a'));
   var targets = links
     .map(function (a) { return document.querySelector(a.getAttribute('href')); })
     .filter(Boolean);
 
   if ('IntersectionObserver' in window) {
-    var spy = new IntersectionObserver(function (entries) {
-      entries.forEach(function (e) {
+    var spy = new IntersectionObserver(function (en) {
+      en.forEach(function (e) {
         if (!e.isIntersecting) return;
         links.forEach(function (a) {
           a.classList.toggle('here', a.getAttribute('href') === '#' + e.target.id);
@@ -1430,37 +1817,34 @@ except KeyboardInterrupt:
     }, { rootMargin: '-14% 0px -72% 0px' });
     targets.forEach(function (x) { spy.observe(x); });
 
-    /* ================= REVEAL ON SCROLL ================= */
+    var blocks = document.querySelectorAll(
+      '.main h1.section, .main .label, .main p, .main ul, .main table,' +
+      '.main .code-wrap, .main .video, .main .imgrow, .main .single-img, .main .headshot');
     if (!reduce) {
-      var blocks = document.querySelectorAll(
-        '.main h1.section, .main .label, .main p, .main ul, .main table,' +
-        '.main .code-wrap, .main .video, .main .imgrow, .main .single-img, .main .headshot');
       Array.prototype.forEach.call(blocks, function (el) { el.classList.add('rise'); });
-      var reveal = new IntersectionObserver(function (entries) {
-        entries.forEach(function (e) {
-          if (e.isIntersecting) { e.target.classList.add('seen'); reveal.unobserve(e.target); }
-        });
-      }, { rootMargin: '0px 0px -7% 0px', threshold: 0.04 });
-      Array.prototype.forEach.call(blocks, function (el) { reveal.observe(el); });
     }
+    var reveal = new IntersectionObserver(function (en) {
+      en.forEach(function (e) {
+        if (e.isIntersecting) { e.target.classList.add('seen'); reveal.unobserve(e.target); }
+      });
+    }, { rootMargin: '0px 0px -7% 0px', threshold: .04 });
+    Array.prototype.forEach.call(blocks, function (el) { reveal.observe(el); });
   }
 
-  /* ================= COPY BUTTONS ================= */
+  /* ==================================================================
+     COPY BUTTONS
+     ================================================================== */
   Array.prototype.forEach.call(document.querySelectorAll('.code-wrap'), function (wrap) {
-    var pre = wrap.querySelector('pre');
-    var cbar = wrap.querySelector('.code-bar');
+    var pre = wrap.querySelector('pre'), cbar = wrap.querySelector('.code-bar');
     if (!pre || !cbar) return;
     var btn = document.createElement('button');
-    btn.className = 'copy';
-    btn.type = 'button';
-    btn.textContent = 'COPY';
+    btn.className = 'copy'; btn.type = 'button'; btn.textContent = 'COPY';
+    btn.setAttribute('data-lock', '');
     btn.addEventListener('click', function () {
       function ok() {
-        btn.textContent = 'COPIED';
-        btn.classList.add('done');
+        btn.textContent = 'COPIED'; btn.classList.add('done');
         setTimeout(function () {
-          btn.textContent = 'COPY';
-          btn.classList.remove('done');
+          btn.textContent = 'COPY'; btn.classList.remove('done');
         }, 1600);
       }
       if (navigator.clipboard && navigator.clipboard.writeText) {
@@ -1468,8 +1852,7 @@ except KeyboardInterrupt:
       } else {
         var ta = document.createElement('textarea');
         ta.value = pre.innerText;
-        document.body.appendChild(ta);
-        ta.select();
+        document.body.appendChild(ta); ta.select();
         try { document.execCommand('copy'); ok(); } catch (err) {}
         document.body.removeChild(ta);
       }
