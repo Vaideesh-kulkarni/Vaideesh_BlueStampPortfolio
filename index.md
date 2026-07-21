@@ -99,8 +99,8 @@ td a:hover{color:var(--box)}
   </div>
   <div class="project-tagline">Vaideesh K · Computer Vision · Cupertino High School</div>
   <div class="btns">
-    <a class="btn primary" href="#final">Final Milestone</a>
-    <a class="btn" href="#mods">Modifications</a>
+    <a class="btn primary" href="#mods">Modifications</a>
+    <a class="btn" href="#final">Final Milestone</a>
     <a class="btn" href="#bom">Bill of Materials</a>
   </div>
 </header>
@@ -116,8 +116,297 @@ td a:hover{color:var(--box)}
 
   <img class="headshot" src="Vaideesh%20K.jpg" alt="Vaideesh K">
 
+  <!-- ============ MODIFICATIONS ============ -->
+  <h1 class="section" id="mods"><span class="idx">EXTENSION / POST-FINAL</span>Modifications</h1>
+
+  <div class="label">Summary</div>
+  <p>After finishing my final milestone, I went back and upgraded the robot with three big improvements: variable speed control using PWM, a servo that pans the camera to keep the ball centered, and a web dashboard that streams the camera feed live and lets me start and stop the robot from my phone. In the original code the motors were either fully on or fully off, the camera was fixed in place, and I could only see what the robot saw if I was plugged into a monitor. With these modifications the robot now slows down smoothly as it gets close to the ball, physically turns the camera to follow the ball instead of just steering the whole body, and I can control and watch everything from a browser on any device connected to the same network. I also made the ball detection steadier so the tracking is less jumpy.</p>
+
+  <div class="label">PWM Speed Control</div>
+  <p>In my final milestone the motors only knew two states — full power or off — so the robot moved in jerky bursts. I switched every motor pin over to PWM (Pulse Width Modulation), which rapidly turns the pin on and off to control how much power the motor actually gets, so now I can set any speed from 0 to 100 percent. I use this to make the robot cruise fast when the ball is far away and automatically slow down as it gets closer, so it eases up to the ball instead of slamming into it. The <code class="inl">speed_for()</code> function does this by mapping the distance to a speed: far away returns full cruise speed, close returns the minimum creep speed, and anything in between scales smoothly between the two. I also added an <code class="inl">INSIDE</code> factor to the turn functions so that when turning, the inside wheel spins slower than the outside wheel, which gives a smoother curve instead of a sharp pivot.</p>
+
+  <div class="label">Servo Camera Panning</div>
+  <p>The biggest change was adding a servo motor under the camera so the camera can physically turn left and right on its own. Before, if the ball moved to the side, the whole robot had to rotate to keep it in view. Now the camera pans to follow the ball while the body stays pointed forward, which makes tracking much smoother. The code figures out how far the ball is from the center of the frame (the "error"), and if that error is bigger than a deadzone, it nudges the servo a small step in that direction to re-center the ball. The deadzone stops the servo from twitching constantly when the ball is basically centered. There is a <code class="inl">SERVO_DIR</code> setting I can flip if the servo turns the wrong way, and min/max limits so it cannot try to turn past its physical range.</p>
+
+  <div class="label">Web Control Dashboard</div>
+  <p>To make the robot easier to use and to show it off, I added a web interface using Flask. The program runs two things at the same time using threading: one thread is the "brain" that captures frames, detects the ball, reads the sensors, and drives the motors and servo, and the other thread runs a small web server. The web page has a live video feed of what the camera sees, plus START and STOP buttons. The video is streamed as MJPEG, which is basically a fast sequence of JPEG images, and I compress each frame to 60 percent quality so it streams smoothly without lag. Now I can open a browser on my phone, go to the Pi's IP address, and watch and control the robot with no monitor or keyboard plugged in.</p>
+
+  <div class="label">Steadier Detection</div>
+  <p>I also cleaned up the ball detection. Instead of just using the biggest red blob, the code now scores each candidate by how well it fills a circle (using <code class="inl">minEnclosingCircle</code>) combined with its size, and picks the best one. On top of that I added smoothing so the tracked position is a blend of the old position and the new one (a 60/40 mix), which stops the box from jumping around frame to frame. I also added a "lost hold" so if the ball disappears for a few frames the robot does not instantly give up — it holds the last known position for a short time in case the ball just flickered out.</p>
+
+  <div class="label">Modified Code — PWM, Servo, and Web Control</div>
+  <p>This is the full upgraded program. It combines the camera, motors, servo, and ultrasonic sensors, adds PWM speed control and servo panning, and serves a live video stream with START/STOP buttons to a web page. All the settings I tune the most are grouped at the top so they are easy to adjust.</p>
+  <div class="code-wrap">
+<div class="code-bar"><span class="dot d1"></span><span class="dot d2"></span><span class="dot d3"></span><span class="fname">nano_demo.py</span></div>
+<pre><code>from flask import Flask, Response, render_template_string
+from picamera2 import Picamera2
+import cv2
+import numpy as np
+import RPi.GPIO as GPIO
+import time
+import threading
+
+# ================= TUNING =================
+# motors
+MIN_SPEED    = 55
+CRUISE_SPEED = 100
+TURN_SPEED   = 90
+AVOID_SPEED  = 85
+SLOW_FROM    = 60
+ARRIVE_AT    = 15
+OBSTACLE_AT  = 20
+SIDE_EVERY   = 8
+
+# detection
+MIN_AREA   = 400
+MIN_RADIUS = 20
+MAX_RADIUS = 100
+MIN_FILL   = 0.55
+LOST_HOLD  = 10
+
+# servo camera pan
+SERVO_DIR = -1        # flip to 1 if camera turns away from the ball
+SERVO_GAIN = 0.03
+SERVO_MAX_STEP = 3
+SERVO_DEADZONE = 55
+SERVO_MIN = 20
+SERVO_MAX = 160
+
+# ================= MOTORS =================
+GPIO.setmode(GPIO.BCM)
+GPIO.setwarnings(False)
+A1A = 6; A1B = 5; B1A = 22; B2A = 23
+for p in [A1A, A1B, B1A, B2A]:
+    GPIO.setup(p, GPIO.OUT)
+pA1A = GPIO.PWM(A1A, 1000); pA1B = GPIO.PWM(A1B, 1000)
+pB1A = GPIO.PWM(B1A, 1000); pB2A = GPIO.PWM(B2A, 1000)
+for p in [pA1A, pA1B, pB1A, pB2A]:
+    p.start(0)
+
+INSIDE = 0.4
+def forward(s):
+    pA1A.ChangeDutyCycle(0); pA1B.ChangeDutyCycle(s)
+    pB1A.ChangeDutyCycle(0); pB2A.ChangeDutyCycle(s)
+def left(s):
+    pA1A.ChangeDutyCycle(0); pA1B.ChangeDutyCycle(int(s * INSIDE))
+    pB1A.ChangeDutyCycle(0); pB2A.ChangeDutyCycle(s)
+def right(s):
+    pA1A.ChangeDutyCycle(0); pA1B.ChangeDutyCycle(s)
+    pB1A.ChangeDutyCycle(0); pB2A.ChangeDutyCycle(int(s * INSIDE))
+def stop():
+    for p in [pA1A, pA1B, pB1A, pB2A]:
+        p.ChangeDutyCycle(0)
+
+# ================= SERVO =================
+SERVO = 18
+GPIO.setup(SERVO, GPIO.OUT)
+servo_pwm = GPIO.PWM(SERVO, 50)
+servo_pwm.start(0)
+cam_angle = 90.0
+def drive_servo(a):
+    a = max(SERVO_MIN, min(SERVO_MAX, a))
+    duty = 2.5 + (a / 180.0) * 10.0
+    servo_pwm.ChangeDutyCycle(duty)
+    time.sleep(0.02)
+    servo_pwm.ChangeDutyCycle(0)
+    return a
+cam_angle = drive_servo(cam_angle)
+
+# ================= SENSORS =================
+SENSORS = {&quot;LEFT&quot;: (19, 26), &quot;CENTER&quot;: (16, 20), &quot;RIGHT&quot;: (11, 12)}
+for trig, echo in SENSORS.values():
+    GPIO.setup(trig, GPIO.OUT)
+    GPIO.setup(echo, GPIO.IN)
+    GPIO.output(trig, False)
+def measure(trig, echo):
+    start = time.time(); stop_t = time.time()
+    GPIO.output(trig, True); time.sleep(0.00001); GPIO.output(trig, False)
+    t = time.time() + 0.006
+    while GPIO.input(echo) == 0 and time.time() &lt; t: start = time.time()
+    t = time.time() + 0.006
+    while GPIO.input(echo) == 1 and time.time() &lt; t: stop_t = time.time()
+    d = round((stop_t - start) * 34300 / 2, 1)
+    return d if 0 &lt; d &lt; 400 else 400
+
+# ================= CAMERA =================
+picam2 = Picamera2()
+picam2.configure(picam2.create_preview_configuration(
+    main={&quot;format&quot;: &quot;RGB888&quot;, &quot;size&quot;: (480, 360)}))
+picam2.start()
+time.sleep(2)
+
+W = 480
+CENTER = W // 2
+LEFT_EDGE  = W // 3
+RIGHT_EDGE = W * 2 // 3
+kernel = np.ones((5, 5), np.uint8)
+
+running = False
+latest = None
+lock = threading.Lock()
+dL = dR = 400
+frame_count = 0
+sx = None
+lost = 0
+
+def speed_for(d):
+    if d &gt;= SLOW_FROM: return CRUISE_SPEED
+    if d &lt;= ARRIVE_AT: return MIN_SPEED
+    frac = (d - ARRIVE_AT) / float(SLOW_FROM - ARRIVE_AT)
+    return int(MIN_SPEED + frac * (CRUISE_SPEED - MIN_SPEED))
+
+def brain():
+    global latest, dL, dR, frame_count, sx, lost, cam_angle
+    while True:
+        frame_count += 1
+        frame = picam2.capture_array()
+        frame = cv2.flip(frame, -1)
+
+        dC = measure(*SENSORS[&quot;CENTER&quot;])
+        if frame_count % SIDE_EVERY == 0:
+            dL = measure(*SENSORS[&quot;LEFT&quot;])
+            dR = measure(*SENSORS[&quot;RIGHT&quot;])
+
+        # ---- DETECTION ----
+        blurred = cv2.GaussianBlur(frame, (5, 5), 0)
+        hsv = cv2.cvtColor(blurred, cv2.COLOR_BGR2HSV)
+        lo1 = np.array([0, 150, 90]);   hi1 = np.array([10, 255, 255])
+        lo2 = np.array([170, 150, 90]); hi2 = np.array([180, 255, 255])
+        mask = cv2.inRange(hsv, lo1, hi1) + cv2.inRange(hsv, lo2, hi2)
+        mask = cv2.morphologyEx(mask, cv2.MORPH_OPEN,  kernel)
+        mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, kernel, iterations=2)
+        mask = cv2.copyMakeBorder(mask, 1, 1, 1, 1, cv2.BORDER_CONSTANT, value=0)
+
+        contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        best = None; best_score = 0
+        for c in contours:
+            area = cv2.contourArea(c)
+            if area &lt; MIN_AREA:
+                continue
+            (mx, my), mr = cv2.minEnclosingCircle(c)
+            if mr &lt; MIN_RADIUS or mr &gt; MAX_RADIUS:
+                continue
+            fill = area / (np.pi * mr * mr) if mr &gt; 0 else 0
+            if fill &lt; MIN_FILL:
+                continue
+            score = fill * area
+            if score &gt; best_score:
+                best_score = score
+                best = (int(mx), int(my), int(mr))
+
+        # smooth + hold
+        if best is not None:
+            mx = best[0]
+            sx = mx if sx is None else 0.6 * sx + 0.4 * mx
+            lost = 0
+        else:
+            lost += 1
+            if lost &gt; LOST_HOLD:
+                sx = None
+
+        ball = sx is not None
+        pos = &quot;NONE&quot;
+        if ball:
+            cx = int(sx)
+            if cx &lt; LEFT_EDGE:    pos = &quot;LEFT&quot;
+            elif cx &gt; RIGHT_EDGE: pos = &quot;RIGHT&quot;
+            else:                 pos = &quot;CENTER&quot;
+            if best is not None:
+                bx, by, br = best
+                cv2.circle(frame, (bx, by), br, (0, 255, 0), 3)
+
+            # ---- SERVO: pan camera to keep ball centered ----
+            err = cx - CENTER
+            if abs(err) &gt; SERVO_DEADZONE:
+                stepc = SERVO_DIR * SERVO_GAIN * err
+                stepc = max(-SERVO_MAX_STEP, min(SERVO_MAX_STEP, stepc))
+                cam_angle = cam_angle + stepc
+        cam_angle = drive_servo(cam_angle)
+
+        # ---- DRIVE ----
+        if not running:
+            stop(); action = &quot;STOPPED&quot;
+        elif dL &lt; OBSTACLE_AT and dL &lt; dR:
+            right(AVOID_SPEED); action = &quot;avoid&quot;
+        elif dR &lt; OBSTACLE_AT:
+            left(AVOID_SPEED);  action = &quot;avoid&quot;
+        elif ball:
+            if 0 &lt; dC &lt;= ARRIVE_AT:
+                stop(); action = &quot;ARRIVED&quot;
+            elif pos == &quot;LEFT&quot;:
+                left(TURN_SPEED);  action = &quot;left&quot;
+            elif pos == &quot;RIGHT&quot;:
+                right(TURN_SPEED); action = &quot;right&quot;
+            else:
+                s = speed_for(dC)
+                forward(s); action = f&quot;fwd {s}%&quot;
+        else:
+            stop(); action = &quot;no ball&quot;
+
+        cv2.line(frame, (LEFT_EDGE, 0),  (LEFT_EDGE, 360),  (80, 80, 80), 1)
+        cv2.line(frame, (RIGHT_EDGE, 0), (RIGHT_EDGE, 360), (80, 80, 80), 1)
+        cv2.putText(frame, f&quot;{pos} | {action}&quot;, (10, 30),
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 0), 2)
+        cv2.putText(frame, f&quot;C{dC}  cam={int(cam_angle)}&quot;, (10, 60),
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 0), 2)
+
+        ok, jpg = cv2.imencode(&#x27;.jpg&#x27;, frame, [int(cv2.IMWRITE_JPEG_QUALITY), 60])
+        if ok:
+            with lock:
+                latest = jpg.tobytes()
+
+threading.Thread(target=brain, daemon=True).start()
+
+app = Flask(__name__)
+PAGE = &quot;&quot;&quot;
+&lt;html&gt;&lt;head&gt;&lt;title&gt;Ball Tracking Robot&lt;/title&gt;
+&lt;style&gt;
+ body{background:#111;color:#eee;font-family:sans-serif;text-align:center}
+ img{border:3px solid #444;border-radius:8px;margin-top:15px;width:90%;max-width:600px}
+ button{font-size:20px;padding:14px 34px;margin:10px;border:none;border-radius:6px;cursor:pointer}
+ .go{background:#2a7;color:#fff} .no{background:#a33;color:#fff}
+&lt;/style&gt;&lt;/head&gt;
+&lt;body&gt;
+ &lt;h1&gt;Ball Tracking Robot&lt;/h1&gt;
+ &lt;button class=&quot;go&quot; onclick=&quot;fetch(&#x27;/start&#x27;)&quot;&gt;START&lt;/button&gt;
+ &lt;button class=&quot;no&quot; onclick=&quot;fetch(&#x27;/stop&#x27;)&quot;&gt;STOP&lt;/button&gt;
+ &lt;br&gt;&lt;img src=&quot;/video&quot;&gt;
+&lt;/body&gt;&lt;/html&gt;
+&quot;&quot;&quot;
+
+def gen():
+    while True:
+        with lock:
+            d = latest
+        if d is None:
+            time.sleep(0.03); continue
+        yield (b&#x27;--frame\r\nContent-Type: image/jpeg\r\n\r\n&#x27; + d + b&#x27;\r\n&#x27;)
+        time.sleep(0.03)
+
+@app.route(&#x27;/&#x27;)
+def index(): return render_template_string(PAGE)
+
+@app.route(&#x27;/start&#x27;)
+def go():
+    global running; running = True; return &quot;started&quot;
+
+@app.route(&#x27;/stop&#x27;)
+def halt():
+    global running; running = False; stop(); return &quot;stopped&quot;
+
+@app.route(&#x27;/video&#x27;)
+def video():
+    return Response(gen(), mimetype=&#x27;multipart/x-mixed-replace; boundary=frame&#x27;)
+
+try:
+    app.run(host=&#x27;0.0.0.0&#x27;, port=5000, threaded=True)
+finally:
+    stop(); servo_pwm.stop(); GPIO.cleanup()</code></pre>
+</div>
+
   <!-- ============ FINAL MILESTONE ============ -->
   <h1 class="section" id="final"><span class="idx">MILESTONE 03 / FINAL</span>Final Milestone</h1>
+  <div class="video"><iframe src="https://www.youtube.com/embed/IsikH-t7laU" title="Vaideesh K. Milestone 3" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe></div>
 
   <div class="label">Summary</div>
   <p>My third and final milestone is the last portion of my project. In this part I installed a 5MP Raspberry Pi Camera and used OpenCV to run the vision code. The finished robot combines the three ultrasonic sensors, the L9110 motor driver, and the two motors so that it can detect and follow a red ball while using the three ultrasonic sensors to measure the distance to objects on the left, center, and right, and to detect and avoid obstacles in real time. The camera sees the ball and decides whether it is on the left, center, or right, and the robot turns or drives forward to follow it, stopping when it gets close. To make sure the robot only follows the ball and not any other red object, I added a circularity check that measures how round each red object is, so only round objects like the ball are tracked.</p>
@@ -427,294 +716,6 @@ cv2.destroyAllWindows()
 picam2.stop()
 GPIO.cleanup()
 print(&quot;Stopped and cleaned up&quot;)</code></pre>
-</div>
-
-  <!-- ============ MODIFICATIONS ============ -->
-  <h1 class="section" id="mods"><span class="idx">EXTENSION / POST-FINAL</span>Modifications</h1>
-
-  <div class="label">Summary</div>
-  <p>After finishing my final milestone, I went back and upgraded the robot with three big improvements: variable speed control using PWM, a servo that pans the camera to keep the ball centered, and a web dashboard that streams the camera feed live and lets me start and stop the robot from my phone. In the original code the motors were either fully on or fully off, the camera was fixed in place, and I could only see what the robot saw if I was plugged into a monitor. With these modifications the robot now slows down smoothly as it gets close to the ball, physically turns the camera to follow the ball instead of just steering the whole body, and I can control and watch everything from a browser on any device connected to the same network. I also made the ball detection steadier so the tracking is less jumpy.</p>
-
-  <div class="label">PWM Speed Control</div>
-  <p>In my final milestone the motors only knew two states — full power or off — so the robot moved in jerky bursts. I switched every motor pin over to PWM (Pulse Width Modulation), which rapidly turns the pin on and off to control how much power the motor actually gets, so now I can set any speed from 0 to 100 percent. I use this to make the robot cruise fast when the ball is far away and automatically slow down as it gets closer, so it eases up to the ball instead of slamming into it. The <code class="inl">speed_for()</code> function does this by mapping the distance to a speed: far away returns full cruise speed, close returns the minimum creep speed, and anything in between scales smoothly between the two. I also added an <code class="inl">INSIDE</code> factor to the turn functions so that when turning, the inside wheel spins slower than the outside wheel, which gives a smoother curve instead of a sharp pivot.</p>
-
-  <div class="label">Servo Camera Panning</div>
-  <p>The biggest change was adding a servo motor under the camera so the camera can physically turn left and right on its own. Before, if the ball moved to the side, the whole robot had to rotate to keep it in view. Now the camera pans to follow the ball while the body stays pointed forward, which makes tracking much smoother. The code figures out how far the ball is from the center of the frame (the "error"), and if that error is bigger than a deadzone, it nudges the servo a small step in that direction to re-center the ball. The deadzone stops the servo from twitching constantly when the ball is basically centered. There is a <code class="inl">SERVO_DIR</code> setting I can flip if the servo turns the wrong way, and min/max limits so it cannot try to turn past its physical range.</p>
-
-  <div class="label">Web Control Dashboard</div>
-  <p>To make the robot easier to use and to show it off, I added a web interface using Flask. The program runs two things at the same time using threading: one thread is the "brain" that captures frames, detects the ball, reads the sensors, and drives the motors and servo, and the other thread runs a small web server. The web page has a live video feed of what the camera sees, plus START and STOP buttons. The video is streamed as MJPEG, which is basically a fast sequence of JPEG images, and I compress each frame to 60 percent quality so it streams smoothly without lag. Now I can open a browser on my phone, go to the Pi's IP address, and watch and control the robot with no monitor or keyboard plugged in.</p>
-
-  <div class="label">Steadier Detection</div>
-  <p>I also cleaned up the ball detection. Instead of just using the biggest red blob, the code now scores each candidate by how well it fills a circle (using <code class="inl">minEnclosingCircle</code>) combined with its size, and picks the best one. On top of that I added smoothing so the tracked position is a blend of the old position and the new one (a 60/40 mix), which stops the box from jumping around frame to frame. I also added a "lost hold" so if the ball disappears for a few frames the robot does not instantly give up — it holds the last known position for a short time in case the ball just flickered out.</p>
-
-  <div class="label">Modified Code — PWM, Servo, and Web Control</div>
-  <p>This is the full upgraded program. It combines the camera, motors, servo, and ultrasonic sensors, adds PWM speed control and servo panning, and serves a live video stream with START/STOP buttons to a web page. All the settings I tune the most are grouped at the top so they are easy to adjust.</p>
-  <div class="code-wrap">
-<div class="code-bar"><span class="dot d1"></span><span class="dot d2"></span><span class="dot d3"></span><span class="fname">nano_demo.py</span></div>
-<pre><code>from flask import Flask, Response, render_template_string
-from picamera2 import Picamera2
-import cv2
-import numpy as np
-import RPi.GPIO as GPIO
-import time
-import threading
-
-# ================= TUNING =================
-# motors
-MIN_SPEED    = 55
-CRUISE_SPEED = 100
-TURN_SPEED   = 90
-AVOID_SPEED  = 85
-SLOW_FROM    = 60
-ARRIVE_AT    = 15
-OBSTACLE_AT  = 20
-SIDE_EVERY   = 8
-
-# detection
-MIN_AREA   = 400
-MIN_RADIUS = 20
-MAX_RADIUS = 100
-MIN_FILL   = 0.55
-LOST_HOLD  = 10
-
-# servo camera pan
-SERVO_DIR = -1        # flip to 1 if camera turns away from the ball
-SERVO_GAIN = 0.03
-SERVO_MAX_STEP = 3
-SERVO_DEADZONE = 55
-SERVO_MIN = 20
-SERVO_MAX = 160
-
-# ================= MOTORS =================
-GPIO.setmode(GPIO.BCM)
-GPIO.setwarnings(False)
-A1A = 6; A1B = 5; B1A = 22; B2A = 23
-for p in [A1A, A1B, B1A, B2A]:
-    GPIO.setup(p, GPIO.OUT)
-pA1A = GPIO.PWM(A1A, 1000); pA1B = GPIO.PWM(A1B, 1000)
-pB1A = GPIO.PWM(B1A, 1000); pB2A = GPIO.PWM(B2A, 1000)
-for p in [pA1A, pA1B, pB1A, pB2A]:
-    p.start(0)
-
-INSIDE = 0.4
-def forward(s):
-    pA1A.ChangeDutyCycle(0); pA1B.ChangeDutyCycle(s)
-    pB1A.ChangeDutyCycle(0); pB2A.ChangeDutyCycle(s)
-def left(s):
-    pA1A.ChangeDutyCycle(0); pA1B.ChangeDutyCycle(int(s * INSIDE))
-    pB1A.ChangeDutyCycle(0); pB2A.ChangeDutyCycle(s)
-def right(s):
-    pA1A.ChangeDutyCycle(0); pA1B.ChangeDutyCycle(s)
-    pB1A.ChangeDutyCycle(0); pB2A.ChangeDutyCycle(int(s * INSIDE))
-def stop():
-    for p in [pA1A, pA1B, pB1A, pB2A]:
-        p.ChangeDutyCycle(0)
-
-# ================= SERVO =================
-SERVO = 18
-GPIO.setup(SERVO, GPIO.OUT)
-servo_pwm = GPIO.PWM(SERVO, 50)
-servo_pwm.start(0)
-cam_angle = 90.0
-def drive_servo(a):
-    a = max(SERVO_MIN, min(SERVO_MAX, a))
-    duty = 2.5 + (a / 180.0) * 10.0
-    servo_pwm.ChangeDutyCycle(duty)
-    time.sleep(0.02)
-    servo_pwm.ChangeDutyCycle(0)
-    return a
-cam_angle = drive_servo(cam_angle)
-
-# ================= SENSORS =================
-SENSORS = {&quot;LEFT&quot;: (19, 26), &quot;CENTER&quot;: (16, 20), &quot;RIGHT&quot;: (11, 12)}
-for trig, echo in SENSORS.values():
-    GPIO.setup(trig, GPIO.OUT)
-    GPIO.setup(echo, GPIO.IN)
-    GPIO.output(trig, False)
-def measure(trig, echo):
-    start = time.time(); stop_t = time.time()
-    GPIO.output(trig, True); time.sleep(0.00001); GPIO.output(trig, False)
-    t = time.time() + 0.006
-    while GPIO.input(echo) == 0 and time.time() &lt; t: start = time.time()
-    t = time.time() + 0.006
-    while GPIO.input(echo) == 1 and time.time() &lt; t: stop_t = time.time()
-    d = round((stop_t - start) * 34300 / 2, 1)
-    return d if 0 &lt; d &lt; 400 else 400
-
-# ================= CAMERA =================
-picam2 = Picamera2()
-picam2.configure(picam2.create_preview_configuration(
-    main={&quot;format&quot;: &quot;RGB888&quot;, &quot;size&quot;: (480, 360)}))
-picam2.start()
-time.sleep(2)
-
-W = 480
-CENTER = W // 2
-LEFT_EDGE  = W // 3
-RIGHT_EDGE = W * 2 // 3
-kernel = np.ones((5, 5), np.uint8)
-
-running = False
-latest = None
-lock = threading.Lock()
-dL = dR = 400
-frame_count = 0
-sx = None
-lost = 0
-
-def speed_for(d):
-    if d &gt;= SLOW_FROM: return CRUISE_SPEED
-    if d &lt;= ARRIVE_AT: return MIN_SPEED
-    frac = (d - ARRIVE_AT) / float(SLOW_FROM - ARRIVE_AT)
-    return int(MIN_SPEED + frac * (CRUISE_SPEED - MIN_SPEED))
-
-def brain():
-    global latest, dL, dR, frame_count, sx, lost, cam_angle
-    while True:
-        frame_count += 1
-        frame = picam2.capture_array()
-        frame = cv2.flip(frame, -1)
-
-        dC = measure(*SENSORS[&quot;CENTER&quot;])
-        if frame_count % SIDE_EVERY == 0:
-            dL = measure(*SENSORS[&quot;LEFT&quot;])
-            dR = measure(*SENSORS[&quot;RIGHT&quot;])
-
-        # ---- DETECTION ----
-        blurred = cv2.GaussianBlur(frame, (5, 5), 0)
-        hsv = cv2.cvtColor(blurred, cv2.COLOR_BGR2HSV)
-        lo1 = np.array([0, 150, 90]);   hi1 = np.array([10, 255, 255])
-        lo2 = np.array([170, 150, 90]); hi2 = np.array([180, 255, 255])
-        mask = cv2.inRange(hsv, lo1, hi1) + cv2.inRange(hsv, lo2, hi2)
-        mask = cv2.morphologyEx(mask, cv2.MORPH_OPEN,  kernel)
-        mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, kernel, iterations=2)
-        mask = cv2.copyMakeBorder(mask, 1, 1, 1, 1, cv2.BORDER_CONSTANT, value=0)
-
-        contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-        best = None; best_score = 0
-        for c in contours:
-            area = cv2.contourArea(c)
-            if area &lt; MIN_AREA:
-                continue
-            (mx, my), mr = cv2.minEnclosingCircle(c)
-            if mr &lt; MIN_RADIUS or mr &gt; MAX_RADIUS:
-                continue
-            fill = area / (np.pi * mr * mr) if mr &gt; 0 else 0
-            if fill &lt; MIN_FILL:
-                continue
-            score = fill * area
-            if score &gt; best_score:
-                best_score = score
-                best = (int(mx), int(my), int(mr))
-
-        # smooth + hold
-        if best is not None:
-            mx = best[0]
-            sx = mx if sx is None else 0.6 * sx + 0.4 * mx
-            lost = 0
-        else:
-            lost += 1
-            if lost &gt; LOST_HOLD:
-                sx = None
-
-        ball = sx is not None
-        pos = &quot;NONE&quot;
-        if ball:
-            cx = int(sx)
-            if cx &lt; LEFT_EDGE:    pos = &quot;LEFT&quot;
-            elif cx &gt; RIGHT_EDGE: pos = &quot;RIGHT&quot;
-            else:                 pos = &quot;CENTER&quot;
-            if best is not None:
-                bx, by, br = best
-                cv2.circle(frame, (bx, by), br, (0, 255, 0), 3)
-
-            # ---- SERVO: pan camera to keep ball centered ----
-            err = cx - CENTER
-            if abs(err) &gt; SERVO_DEADZONE:
-                stepc = SERVO_DIR * SERVO_GAIN * err
-                stepc = max(-SERVO_MAX_STEP, min(SERVO_MAX_STEP, stepc))
-                cam_angle = cam_angle + stepc
-        cam_angle = drive_servo(cam_angle)
-
-        # ---- DRIVE ----
-        if not running:
-            stop(); action = &quot;STOPPED&quot;
-        elif dL &lt; OBSTACLE_AT and dL &lt; dR:
-            right(AVOID_SPEED); action = &quot;avoid&quot;
-        elif dR &lt; OBSTACLE_AT:
-            left(AVOID_SPEED);  action = &quot;avoid&quot;
-        elif ball:
-            if 0 &lt; dC &lt;= ARRIVE_AT:
-                stop(); action = &quot;ARRIVED&quot;
-            elif pos == &quot;LEFT&quot;:
-                left(TURN_SPEED);  action = &quot;left&quot;
-            elif pos == &quot;RIGHT&quot;:
-                right(TURN_SPEED); action = &quot;right&quot;
-            else:
-                s = speed_for(dC)
-                forward(s); action = f&quot;fwd {s}%&quot;
-        else:
-            stop(); action = &quot;no ball&quot;
-
-        cv2.line(frame, (LEFT_EDGE, 0),  (LEFT_EDGE, 360),  (80, 80, 80), 1)
-        cv2.line(frame, (RIGHT_EDGE, 0), (RIGHT_EDGE, 360), (80, 80, 80), 1)
-        cv2.putText(frame, f&quot;{pos} | {action}&quot;, (10, 30),
-                    cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 0), 2)
-        cv2.putText(frame, f&quot;C{dC}  cam={int(cam_angle)}&quot;, (10, 60),
-                    cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 0), 2)
-
-        ok, jpg = cv2.imencode(&#x27;.jpg&#x27;, frame, [int(cv2.IMWRITE_JPEG_QUALITY), 60])
-        if ok:
-            with lock:
-                latest = jpg.tobytes()
-
-threading.Thread(target=brain, daemon=True).start()
-
-app = Flask(__name__)
-PAGE = &quot;&quot;&quot;
-&lt;html&gt;&lt;head&gt;&lt;title&gt;Ball Tracking Robot&lt;/title&gt;
-&lt;style&gt;
- body{background:#111;color:#eee;font-family:sans-serif;text-align:center}
- img{border:3px solid #444;border-radius:8px;margin-top:15px;width:90%;max-width:600px}
- button{font-size:20px;padding:14px 34px;margin:10px;border:none;border-radius:6px;cursor:pointer}
- .go{background:#2a7;color:#fff} .no{background:#a33;color:#fff}
-&lt;/style&gt;&lt;/head&gt;
-&lt;body&gt;
- &lt;h1&gt;Ball Tracking Robot&lt;/h1&gt;
- &lt;button class=&quot;go&quot; onclick=&quot;fetch(&#x27;/start&#x27;)&quot;&gt;START&lt;/button&gt;
- &lt;button class=&quot;no&quot; onclick=&quot;fetch(&#x27;/stop&#x27;)&quot;&gt;STOP&lt;/button&gt;
- &lt;br&gt;&lt;img src=&quot;/video&quot;&gt;
-&lt;/body&gt;&lt;/html&gt;
-&quot;&quot;&quot;
-
-def gen():
-    while True:
-        with lock:
-            d = latest
-        if d is None:
-            time.sleep(0.03); continue
-        yield (b&#x27;--frame\r\nContent-Type: image/jpeg\r\n\r\n&#x27; + d + b&#x27;\r\n&#x27;)
-        time.sleep(0.03)
-
-@app.route(&#x27;/&#x27;)
-def index(): return render_template_string(PAGE)
-
-@app.route(&#x27;/start&#x27;)
-def go():
-    global running; running = True; return &quot;started&quot;
-
-@app.route(&#x27;/stop&#x27;)
-def halt():
-    global running; running = False; stop(); return &quot;stopped&quot;
-
-@app.route(&#x27;/video&#x27;)
-def video():
-    return Response(gen(), mimetype=&#x27;multipart/x-mixed-replace; boundary=frame&#x27;)
-
-try:
-    app.run(host=&#x27;0.0.0.0&#x27;, port=5000, threaded=True)
-finally:
-    stop(); servo_pwm.stop(); GPIO.cleanup()</code></pre>
 </div>
 
   <!-- ============ SECOND MILESTONE ============ -->
