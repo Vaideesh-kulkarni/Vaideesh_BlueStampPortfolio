@@ -31,8 +31,8 @@ body{background:var(--paper);color:var(--ink);font-family:'Inter',system-ui,-app
 .project-name{font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:clamp(30px,5vw,52px);line-height:1.06;letter-spacing:-.02em}
 .project-name .accent{color:var(--ball)}
 .project-tagline{font-family:'JetBrains Mono',monospace;font-size:14px;color:#9AA6A0;margin-top:26px}
-.btns{margin-top:32px;display:flex;gap:14px;justify-content:center;flex-wrap:wrap}
-.btn{font-family:'JetBrains Mono',monospace;font-size:13px;font-weight:500;letter-spacing:.05em;text-decoration:none;color:#EDEFEC;border:1.5px solid rgba(255,255,255,.22);padding:11px 20px;border-radius:4px;transition:all .18s ease}
+.btns{margin-top:32px;display:flex;gap:10px;justify-content:center;flex-wrap:wrap;max-width:720px;margin-left:auto;margin-right:auto}
+.btn{font-family:'JetBrains Mono',monospace;font-size:12.5px;font-weight:500;letter-spacing:.04em;text-decoration:none;color:#EDEFEC;border:1.5px solid rgba(255,255,255,.22);padding:10px 16px;border-radius:4px;transition:all .18s ease;white-space:nowrap}
 .btn:hover{border-color:var(--box);color:var(--box);transform:translateY(-1px)}
 .btn.primary{border-color:var(--box);color:var(--box)}
 .btn.primary:hover{background:var(--box);color:var(--panel)}
@@ -101,7 +101,11 @@ td a:hover{color:var(--box)}
   <div class="btns">
     <a class="btn primary" href="#mods">Modifications</a>
     <a class="btn" href="#final">Final Milestone</a>
+    <a class="btn" href="#m2">Second Milestone</a>
+    <a class="btn" href="#m1">First Milestone</a>
+    <a class="btn" href="#schematics">Schematics</a>
     <a class="btn" href="#bom">Bill of Materials</a>
+    <a class="btn" href="#starter">Starter Project</a>
   </div>
 </header>
 
