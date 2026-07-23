@@ -373,6 +373,19 @@ td a:hover{text-decoration:underline}
 .imgrow img:hover{transform:translateY(-4px);border-color:var(--green-ink);
   box-shadow:0 18px 36px -18px rgba(20,28,33,.4)}
 .single-img{border-radius:12px;max-width:100%;border:1px solid var(--rule-2);margin:24px 0}
+
+/* a dense schematic needs more width than the reading column allows,
+   so it breaks out on either side and opens full size in a new tab */
+.wide{width:calc(100% + 340px);margin-left:-170px;max-width:calc(100vw - 48px)}
+.wide img{width:100%;height:auto;display:block;border-radius:12px;
+  border:1px solid var(--rule-2);background:#fff;
+  box-shadow:0 26px 60px -32px rgba(20,28,33,.45);
+  transition:box-shadow .3s ease,border-color .3s ease}
+.wide a:hover img{border-color:var(--green-ink);
+  box-shadow:0 30px 66px -30px rgba(20,28,33,.55)}
+.wide figcaption{font-family:var(--mono);font-size:11.5px;color:var(--muted);
+  margin-top:12px;text-align:center;letter-spacing:.03em}
+@media (max-width:1180px){.wide{width:100%;margin-left:0}}
 .headshot{width:100%;max-width:440px;height:auto;border-radius:13px;
   border:2px solid var(--green-ink);margin:28px 0;display:block;
   box-shadow:0 24px 54px -30px rgba(20,28,33,.45)}
@@ -1295,7 +1308,17 @@ except KeyboardInterrupt:
   <!-- ============ SCHEMATICS ============ -->
   <h1 class="section" id="schematics"><span class="idx">REFERENCE</span>Schematics</h1>
   <div class="label">Ball Tracking Robot Diagram</div>
-  <img class="single-img" src="Ball%20Tracking%20Robot%20With%20Open%20CV%20Schematics.jpg" alt="Ball Tracking Robot Schematic" style="max-width:600px">
+  <p>This is the complete wiring diagram for the robot. Every Raspberry Pi connection is labelled
+    by physical board pin number with the BCM GPIO number in brackets, and the three Echo voltage
+    dividers are drawn hole by hole on the breadboard. A filled dot marks a real electrical
+    junction; a small arc means two wires cross without touching.</p>
+  <figure class="wide">
+    <a href="Screenshot%202026-07-23%20012431.png" target="_blank" rel="noopener" data-lock>
+      <img src="Screenshot%202026-07-23%20012431.png"
+           alt="Complete wiring schematic: Raspberry Pi 4B, three HC-SR04 sensors on 1k and 2k echo voltage dividers, L298N motor driver, two DC motors, 6V battery pack and a separate USB-C power bank.">
+    </a>
+    <figcaption>Click to open the full-size version</figcaption>
+  </figure>
   <div class="label">Robot Build Photos</div>
   <div class="imgrow">
     <img src="IMG_6778.jpeg" alt="Build photo 1" style="width:250px">
@@ -1840,7 +1863,7 @@ except KeyboardInterrupt:
 
     var blocks = document.querySelectorAll(
       '.main h1.section, .main .label, .main p, .main ul, .main table,' +
-      '.main .code-wrap, .main .video, .main .imgrow, .main .single-img, .main .headshot');
+      '.main .code-wrap, .main .video, .main .imgrow, .main .single-img, .main .headshot, .main figure');
     if (!reduce) {
       Array.prototype.forEach.call(blocks, function (el) { el.classList.add('rise'); });
     }
